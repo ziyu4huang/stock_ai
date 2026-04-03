@@ -727,10 +727,41 @@ async function scanAll() {
 (window as any).scanAll = scanAll;
 (window as any).loadStockFromWatchlist = (symbol: string) => loadStock(symbol, currentDays);
 
+// ── config panel ──────────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const resp = await fetch("/api/config");
+    const cfg = await resp.json();
+    const sel = document.getElementById("cfg-backend") as HTMLSelectElement;
+    if (sel && cfg.fetch_backend) sel.value = cfg.fetch_backend;
+  } catch { /* ignore */ }
+}
+
+(window as any).toggleConfig = () => {
+  document.getElementById("cfg-panel")!.classList.toggle("open");
+};
+
+(window as any).setConfig = async (backend: string) => {
+  const statusEl = document.getElementById("cfg-status")!;
+  try {
+    const resp = await fetch("/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fetch_backend: backend }),
+    });
+    const cfg = await resp.json();
+    statusEl.textContent = `Saved: ${cfg.fetch_backend}`;
+    setTimeout(() => { statusEl.textContent = ""; }, 2000);
+  } catch {
+    statusEl.textContent = "Failed to save";
+  }
+};
+
 // ── boot ─────────────────────────────────────────────────────────────────
 initChart();
 (document.getElementById("wl-add-input") as HTMLInputElement).addEventListener("keydown", (e) => {
   if (e.key === "Enter") addToWatchlist();
 });
 loadWatchlist();
+loadConfig();
 loadStock("2330.TW", currentDays);

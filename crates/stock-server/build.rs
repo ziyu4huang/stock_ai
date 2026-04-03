@@ -207,6 +207,26 @@ fn main() {
       padding:2px 8px; border-radius:4px; font-size:10px; cursor:pointer;
     }}
 
+    /* config panel */
+    #cfg-btn {{
+      background:#1a1d25; color:#99aabb; border:1px solid #272c38;
+      padding:4px 8px; border-radius:5px; font-size:13px; cursor:pointer;
+    }}
+    #cfg-btn:hover {{ background:#222733; color:#dde; }}
+    #cfg-panel {{
+      display:none; position:fixed; top:38px; right:12px; z-index:60;
+      background:#13151a; border:1px solid #21242e; border-radius:8px;
+      box-shadow:0 6px 24px rgba(0,0,0,.5); padding:14px; min-width:220px;
+    }}
+    #cfg-panel.open {{ display:block; }}
+    #cfg-panel label {{ font-size:10px; color:#556; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:4px; }}
+    #cfg-panel select {{
+      width:100%; background:#1a1d25; color:#dde; border:1px solid #272c38;
+      padding:6px 8px; border-radius:4px; font-size:12px; outline:none;
+    }}
+    #cfg-panel select:focus {{ border-color:#5b8def; }}
+    #cfg-status {{ font-size:10px; color:#3dbb6a; margin-top:6px; min-height:14px; }}
+
     /* ── mobile (≤768px) ─────────────────────────────────────── */
     @media (max-width: 768px) {{
       #wl-toggle {{ display:block; }}
@@ -247,6 +267,7 @@ fn main() {
   <div id="tb-right">
     <button id="bt-btn" onclick="runBacktest()">HMM Backtest</button>
     <button id="rp-btn" onclick="openReport()">HTML Report</button>
+    <button id="cfg-btn" onclick="toggleConfig()">&#9881;</button>
   </div>
 </div>
 
@@ -299,6 +320,16 @@ fn main() {
 <div id="backtest-panel">
   <div id="bt-header"><span>HMM Regime Analysis</span><button id="bt-close" onclick="document.getElementById('backtest-panel').style.display='none'">&times;</button></div>
   <div id="bt-content">Click HMM Backtest to run analysis</div>
+</div>
+
+<div id="cfg-panel">
+  <label>Data Source</label>
+  <select id="cfg-backend" onchange="setConfig(this.value)">
+    <option value="yahoo">Yahoo (auto-fallback to AV)</option>
+    <option value="yahoo-only">Yahoo only</option>
+    <option value="av">Alpha Vantage only</option>
+  </select>
+  <div id="cfg-status"></div>
 </div>
 
 <script>{bundle_js}</script>

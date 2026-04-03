@@ -20,6 +20,7 @@ pub struct AppState {
     pub client: reqwest::Client,
     pub db: Mutex<rusqlite::Connection>,
     pub project_dir: String,
+    pub fetch_backend: Mutex<String>, // "yahoo" (default, AV fallback) | "av" | "yahoo-only"
 }
 
 #[derive(Deserialize)]
@@ -420,12 +421,19 @@ pub async fn cached_fetch(st: &AppState, symbol: &str, days: u64, interval: &str
             }
         }
     }
-    // Try Yahoo first (works for all symbols), fall back to Alpha Vantage
-    let result = fetch_yahoo(&st.client, symbol, days, interval).await;
-    let result = if result.is_err() || result.as_ref().map(|b| b.is_empty()).unwrap_or(true) {
-        fetch_av(&st.client, symbol, &st.av_key).await
-    } else {
-        result
+    // Respect fetch_backend config
+    let backend = st.fetch_backend.lock().unwrap().clone();
+    let result = match backend.as_str() {
+        "av" => fetch_av(&st.client, symbol, &st.av_key).await,
+        "yahoo-only" => fetch_yahoo(&st.client, symbol, days, interval).await,
+        _ => { // "yahoo" (default) — Yahoo first, AV fallback
+            let result = fetch_yahoo(&st.client, symbol, days, interval).await;
+            if result.is_err() || result.as_ref().map(|b| b.is_empty()).unwrap_or(true) {
+                fetch_av(&st.client, symbol, &st.av_key).await
+            } else {
+                result
+            }
+        }
     };
     match result {
         Ok(bars) if !bars.is_empty() => {

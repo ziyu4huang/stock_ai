@@ -403,6 +403,27 @@ async fn api_scan(State(st): State<Arc<AppState>>) -> Json<serde_json::Value> {
     Json(serde_json::json!({"scanned": results}))
 }
 
+// ── config ──────────────────────────────────────────────────────────────────
+
+async fn get_config(State(st): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    let backend = st.fetch_backend.lock().unwrap().clone();
+    Json(serde_json::json!({"fetch_backend": backend}))
+}
+
+async fn put_config(
+    State(st): State<Arc<AppState>>,
+    Json(body): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let backend = body["fetch_backend"].as_str()
+        .and_then(|s| match s {
+            "yahoo" | "av" | "yahoo-only" => Some(s.to_string()),
+            _ => None,
+        })
+        .unwrap_or_else(|| "yahoo".to_string());
+    *st.fetch_backend.lock().unwrap() = backend.clone();
+    Json(serde_json::json!({"fetch_backend": backend}))
+}
+
 // ── main ──────────────────────────────────────────────────────────────────
 
 #[tokio::main]
@@ -425,6 +446,7 @@ async fn main() {
         client: reqwest::Client::new(),
         db: Mutex::new(conn),
         project_dir,
+        fetch_backend: Mutex::new("yahoo".into()),
     });
     let app = Router::new()
         // ── webui ──
@@ -449,6 +471,9 @@ async fn main() {
         .route("/api/signals/:symbol", get(api_signals_get))
         // ── scan all ──
         .route("/api/scan", post(api_scan))
+        // ── config ──
+        .route("/api/config", get(get_config))
+        .route("/api/config", post(put_config))
         // ── 1-minute kline ──
         .route("/api/kline1m/:symbol", get(api_kline1m_get))
         .route("/api/fetch1m/:symbol", post(api_fetch1m))
