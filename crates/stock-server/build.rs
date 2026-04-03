@@ -67,16 +67,6 @@ fn main() {
     }}
     .brand {{ font-weight:700; font-size:14px; color:#5b8def; white-space:nowrap; }}
     .tsep  {{ width:1px; height:18px; background:#21242e; margin:0 2px; }}
-    #search {{
-      background:#1a1d25; color:#dde; border:1px solid #272c38;
-      padding:5px 10px; border-radius:5px; font-size:13px; width:160px; outline:none;
-    }}
-    #search:focus {{ border-color:#5b8def; }}
-    .go-btn {{
-      background:#1a2a50; color:#6a9eff; border:1px solid #2a4080;
-      padding:5px 12px; border-radius:5px; font-size:13px; cursor:pointer; white-space:nowrap;
-    }}
-    .go-btn:hover {{ background:#223366; }}
     .pbtn {{
       background:#1a1d25; color:#99aabb; border:1px solid #272c38;
       padding:4px 10px; border-radius:5px; font-size:11px; cursor:pointer;
@@ -216,13 +206,6 @@ fn main() {
       background:#1a2a20; color:#3dbb6a; border:1px solid #1a4a28;
       padding:2px 8px; border-radius:4px; font-size:10px; cursor:pointer;
     }}
-    /* push main content down when live bar is visible — handled by JS setLiveLayout */
-    #live1m-btn {{
-      background:#1a1d25; color:#7788aa; border:1px solid #272c38;
-      padding:4px 9px; border-radius:5px; font-size:11px; cursor:pointer;
-    }}
-    #live1m-btn:hover {{ background:#222733; color:#dde; }}
-    #live1m-btn.active {{ background:#0d2018; color:#22c55e; border-color:#1a4a28; }}
 
     /* ── mobile (≤768px) ─────────────────────────────────────── */
     @media (max-width: 768px) {{
@@ -251,11 +234,10 @@ fn main() {
   <button id="wl-toggle" onclick="toggleWatchlist()">☰</button>
   <span class="brand">Stock AI</span>
   <div class="tsep"></div>
-  <input id="search" placeholder="2330.TW / NVDA" value="2330.TW">
-  <button class="go-btn" onclick="loadStock()">Go</button>
-  <div class="tsep"></div>
-  <button class="pbtn active period-btn" onclick="setPeriod(90,this)">3M</button>
+  <button class="pbtn period-btn" onclick="toggleLive1d(this)">1D</button>
+  <button class="pbtn active period-btn" onclick="setPeriod(7,this)">1W</button>
   <button class="pbtn period-btn" onclick="setPeriod(30,this)">1M</button>
+  <button class="pbtn period-btn" onclick="setPeriod(90,this)">3M</button>
   <button class="pbtn period-btn" onclick="setPeriod(180,this)">6M</button>
   <button class="pbtn period-btn" onclick="setPeriod(365,this)">1Y</button>
   <div class="tsep"></div>
@@ -263,7 +245,6 @@ fn main() {
   <button class="ind-btn" onclick="toggleIndicator('macd',this)">MACD</button>
   <button class="ind-btn" onclick="toggleIndicator('boll',this)">BB</button>
   <div id="tb-right">
-    <button id="live1m-btn" onclick="toggleLive1m(this)">1m Live</button>
     <button id="bt-btn" onclick="runBacktest()">HMM Backtest</button>
     <button id="rp-btn" onclick="openReport()">HTML Report</button>
   </div>

@@ -56,7 +56,8 @@ async fn get_history(
     State(st): State<Arc<AppState>>,
 ) -> Json<serde_json::Value> {
     let days = q.days.unwrap_or(30);
-    let bars = cached_fetch(&st, &symbol, days).await;
+    let interval = q.interval.as_deref().unwrap_or("1d");
+    let bars = cached_fetch(&st, &symbol, days, interval).await;
     Json(serde_json::json!({"symbol": symbol, "bars": bars}))
 }
 
@@ -64,7 +65,7 @@ async fn get_quote(
     Path(symbol): Path<String>,
     State(st): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let bars = match fetch_yahoo(&st.client, &symbol, 5).await {
+    let bars = match fetch_yahoo(&st.client, &symbol, 5, "1d").await {
         Ok(b) if !b.is_empty() => b,
         _ => fetch_av(&st.client, &symbol, &st.av_key).await.unwrap_or_default(),
     };
@@ -86,7 +87,7 @@ async fn get_indicators(
     Path(symbol): Path<String>,
     State(st): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let bars = cached_fetch(&st, &symbol, 180).await;
+    let bars = cached_fetch(&st, &symbol, 180, "1d").await;
     if bars.is_empty() {
         return Err(AppError::not_found(format!("no data for {symbol}")));
     }
@@ -139,7 +140,7 @@ async fn get_kline(
         Some("monthly") => 1825,
         _ => 365,
     };
-    let bars = cached_fetch(&st, &symbol, days).await;
+    let bars = cached_fetch(&st, &symbol, days, "1d").await;
     let from_ts: Option<i64> = q.from.as_ref().and_then(|d| {
         Some(chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()?.and_hms_opt(0, 0, 0)?.and_utc().timestamp())
     });

@@ -25,6 +25,7 @@ pub struct AppState {
 #[derive(Deserialize)]
 pub struct HQ {
     pub days: Option<u64>,
+    pub interval: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -342,12 +343,12 @@ pub fn signal_insert(c: &rusqlite::Connection, symbol: &str, date: &str, signal_
 
 // ── Yahoo Finance fetcher (inline) ────────────────────────────────────────
 
-pub async fn fetch_yahoo(client: &reqwest::Client, symbol: &str, days: u64) -> Result<Vec<Bar>, String> {
+pub async fn fetch_yahoo(client: &reqwest::Client, symbol: &str, days: u64, interval: &str) -> Result<Vec<Bar>, String> {
     let now = chrono::Utc::now();
     let from = now - chrono::Duration::days(days as i64);
     let url = format!(
-        "https://query1.finance.yahoo.com/v8/finance/chart/{}?period1={}&period2={}&interval=1d",
-        symbol, from.timestamp(), now.timestamp()
+        "https://query1.finance.yahoo.com/v8/finance/chart/{}?period1={}&period2={}&interval={}",
+        symbol, from.timestamp(), now.timestamp(), interval
     );
     let resp = client.get(&url)
         .header("User-Agent", "Mozilla/5.0")
@@ -401,23 +402,26 @@ pub async fn fetch_av(client: &reqwest::Client, symbol: &str, api_key: &str) -> 
     Ok(bars)
 }
 
-pub async fn cached_fetch(st: &AppState, symbol: &str, days: u64) -> Vec<Bar> {
-    let now = chrono::Utc::now().timestamp();
-    let from = now - (days as i64) * 86400;
-    let stale_after = now - 48 * 3600; // refetch if latest bar is older than 48h
-    {
-        let db = st.db.lock().unwrap();
-        let cached = db_query(&db, symbol, from, now);
-        if !cached.is_empty() {
-            let latest_ts = cached.iter().map(|b| b.time).max().unwrap_or(0);
-            if latest_ts >= stale_after {
-                return cached; // fresh enough
+pub async fn cached_fetch(st: &AppState, symbol: &str, days: u64, interval: &str) -> Vec<Bar> {
+    // Only use SQLite cache for daily interval (intraday bars have different granularity)
+    if interval == "1d" {
+        let now = chrono::Utc::now().timestamp();
+        let from = now - (days as i64) * 86400;
+        let stale_after = now - 48 * 3600; // refetch if latest bar is older than 48h
+        {
+            let db = st.db.lock().unwrap();
+            let cached = db_query(&db, symbol, from, now);
+            if !cached.is_empty() {
+                let latest_ts = cached.iter().map(|b| b.time).max().unwrap_or(0);
+                if latest_ts >= stale_after {
+                    return cached; // fresh enough
+                }
+                // fall through to refetch stale data
             }
-            // fall through to refetch stale data
         }
     }
     // Try Yahoo first (works for all symbols), fall back to Alpha Vantage
-    let result = fetch_yahoo(&st.client, symbol, days).await;
+    let result = fetch_yahoo(&st.client, symbol, days, interval).await;
     let result = if result.is_err() || result.as_ref().map(|b| b.is_empty()).unwrap_or(true) {
         fetch_av(&st.client, symbol, &st.av_key).await
     } else {
@@ -425,8 +429,10 @@ pub async fn cached_fetch(st: &AppState, symbol: &str, days: u64) -> Vec<Bar> {
     };
     match result {
         Ok(bars) if !bars.is_empty() => {
-            let db = st.db.lock().unwrap();
-            db_upsert(&db, symbol, &bars);
+            if interval == "1d" {
+                let db = st.db.lock().unwrap();
+                db_upsert(&db, symbol, &bars);
+            }
             bars
         }
         _ => vec![],

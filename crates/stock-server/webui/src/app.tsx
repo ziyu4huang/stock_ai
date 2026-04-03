@@ -8,7 +8,7 @@ import * as echarts from "echarts";
 let chart: any = null;
 let currentSymbol = "";
 let currentData: any[] = [];
-let currentDays = 90;
+let currentDays = 7;
 const activeIndicators = new Set<string>(); // "rsi" | "macd" | "boll"
 
 // 1m live view
@@ -98,8 +98,11 @@ async function loadStock(symbol: string, days: number) {
   overlay.style.display = "flex";
   chart.clear();
 
+  // Use shorter intervals for short periods to get more bars
+  const interval = days <= 30 ? "15m" : "1d";
+
   try {
-    const resp = await fetch(`/api/history/${encodeURIComponent(symbol)}?days=${days}`);
+    const resp = await fetch(`/api/history/${encodeURIComponent(symbol)}?days=${days}&interval=${interval}`);
     const data = await resp.json();
     if (!data.bars || data.bars.length === 0) {
       overlay.textContent = "No data for " + symbol;
@@ -108,9 +111,6 @@ async function loadStock(symbol: string, days: number) {
 
     currentSymbol = symbol;
     currentData = data.bars;
-
-    // Update search box to reflect current stock
-    (document.getElementById("search") as HTMLInputElement).value = symbol;
 
     await loadStats(symbol);
     await loadSignals(symbol);
@@ -127,7 +127,16 @@ async function loadStock(symbol: string, days: number) {
 }
 
 function renderChart(bars: any[]) {
-  const dates = bars.map(b => new Date(b.time * 1000).toISOString().slice(0, 10));
+  // Detect if bars are intraday (multiple bars per day)
+  const daySet = new Set(bars.map(b => new Date(b.time * 1000).toISOString().slice(0, 10)));
+  const isIntraday = daySet.size > 0 && bars.length / daySet.size > 2;
+  const dates = bars.map(b => {
+    const d = new Date(b.time * 1000);
+    if (isIntraday) {
+      return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    }
+    return d.toISOString().slice(0, 10);
+  });
   const ohlc = bars.map(b => [b.open, b.close, b.low, b.high]);
   const volumes = bars.map(b => b.volume);
   const closes = bars.map(b => b.close);
@@ -246,7 +255,7 @@ function renderChart(bars: any[]) {
     xAxis,
     yAxis,
     dataZoom: [
-      { type: "inside", xAxisIndex: dzXIdx, start: 50, end: 100 },
+      { type: "inside", xAxisIndex: dzXIdx, start: 0, end: 100 },
       { type: "slider", xAxisIndex: dzXIdx, bottom: 10, height: 20, borderColor: "#21242e", fillerColor: "rgba(91,141,239,0.15)", handleStyle: { color: "#5b8def" } },
     ],
     series,
@@ -647,22 +656,59 @@ async function scanAll() {
 }
 
 // ── exposed to HTML ──────────────────────────────────────────────────────
-(window as any).loadStock = () => {
-  const input = document.getElementById("search") as HTMLInputElement;
-  const sym = input.value.trim().toUpperCase();
-  if (!sym) return;
-  loadStock(sym, currentDays);
-};
-
 (window as any).setPeriod = (days: number, btn: HTMLButtonElement) => {
+  // If in live mode, switch back to daily first
+  if (viewMode === "1m") {
+    viewMode = "daily";
+    const liveBar = document.getElementById("live-bar")!;
+    liveBar.style.display = "none";
+    setLiveLayout(false);
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    // Reset 1D button text
+    document.querySelectorAll(".period-btn").forEach((b) => {
+      if ((b as HTMLButtonElement).textContent?.includes("1D")) (b as HTMLButtonElement).textContent = "1D";
+    });
+  }
   currentDays = days;
   document.querySelectorAll(".period-btn").forEach((b) => b.classList.remove("active"));
   btn.classList.add("active");
   if (currentSymbol) loadStock(currentSymbol, days);
 };
 
+(window as any).toggleLive1d = (btn: HTMLButtonElement) => {
+  if (viewMode === "1m") {
+    // Already live — switch back to daily
+    viewMode = "daily";
+    btn.classList.remove("active");
+    btn.textContent = "1D";
+    const liveBar = document.getElementById("live-bar")!;
+    liveBar.style.display = "none";
+    setLiveLayout(false);
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    if (currentSymbol && currentData.length > 0) renderChart(currentData);
+    // Reactivate the previously selected period button
+    document.querySelectorAll(".period-btn").forEach((b) => {
+      if (b !== btn && (b as HTMLButtonElement).textContent !== "1D") {
+        const d = parseInt((b as HTMLButtonElement).getAttribute("onclick")?.match(/\d+/)?.[0] || "0");
+        if (d === currentDays) b.classList.add("active");
+      }
+    });
+  } else {
+    // Switch to live 1m intraday
+    viewMode = "1m";
+    document.querySelectorAll(".period-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    btn.textContent = "⏹ 1D";
+    const liveBar = document.getElementById("live-bar")!;
+    liveBar.style.display = "flex";
+    setLiveLayout(true);
+    document.getElementById("live-status")!.textContent = "⟳ Loading...";
+    refresh1mView();
+    liveTimer = setInterval(() => refresh1mView(), 60_000);
+  }
+};
+
 (window as any).toggleIndicator = (name: string, btn: HTMLButtonElement) => toggleIndicator(name, btn);
-(window as any).toggleLive1m = (btn: HTMLButtonElement) => toggleLive1m(btn);
 (window as any).refresh1mNow = () => refresh1mView();
 
 (window as any).runBacktest = runBacktest;
@@ -683,9 +729,6 @@ async function scanAll() {
 
 // ── boot ─────────────────────────────────────────────────────────────────
 initChart();
-(document.getElementById("search") as HTMLInputElement).addEventListener("keydown", (e) => {
-  if (e.key === "Enter") (window as any).loadStock();
-});
 (document.getElementById("wl-add-input") as HTMLInputElement).addEventListener("keydown", (e) => {
   if (e.key === "Enter") addToWatchlist();
 });
