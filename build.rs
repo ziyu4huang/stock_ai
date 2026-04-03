@@ -1,0 +1,212 @@
+use std::env;
+use std::fs;
+use std::path::Path;
+use std::process::Command;
+
+fn main() {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let webui_dir = Path::new(&manifest_dir).join("webui");
+    let webui_src = webui_dir.join("src/app.tsx");
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let bundle_path = Path::new(&out_dir).join("bundle.js");
+    let html_path = Path::new(&out_dir).join("webui.html");
+
+    let bun = if cfg!(windows) {
+        "C:/Users/ziyu4/.bun/bin/bun.exe".to_string()
+    } else {
+        dirs_home_bun()
+    };
+
+    // bun install
+    let status = Command::new(&bun)
+        .args(["install"])
+        .current_dir(&webui_dir)
+        .status()
+        .expect("failed to run bun install");
+    assert!(status.success(), "bun install failed");
+
+    // bun build app.tsx -> bundle.js (IIFE)
+    let status = Command::new(&bun)
+        .args([
+            "build",
+            webui_src.to_str().unwrap(),
+            "--outfile",
+            bundle_path.to_str().unwrap(),
+            "--target",
+            "browser",
+            "--format",
+            "iife",
+            "--minify",
+        ])
+        .current_dir(&manifest_dir)
+        .status()
+        .expect("failed to run bun build");
+    assert!(status.success(), "bun build failed");
+
+    let bundle_js = fs::read_to_string(&bundle_path)
+        .expect("failed to read bundle.js")
+        .replace("</script>", r"<\/script>");
+
+    let html = format!(r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stock AI</title>
+  <style>
+    *, *::before, *::after {{ margin:0; padding:0; box-sizing:border-box; }}
+    html, body {{ width:100%; height:100%; overflow:hidden;
+                  background:#0d0e11; font-family:system-ui,-apple-system,sans-serif; color:#ccd; }}
+
+    /* toolbar */
+    #tb {{
+      position:fixed; top:0; left:0; right:0; height:44px; z-index:30;
+      background:#13151a; border-bottom:1px solid #21242e;
+      display:flex; align-items:center; gap:6px; padding:0 12px;
+    }}
+    .brand {{ font-weight:700; font-size:14px; color:#5b8def; white-space:nowrap; }}
+    .tsep  {{ width:1px; height:18px; background:#21242e; margin:0 2px; }}
+    #search {{
+      background:#1a1d25; color:#dde; border:1px solid #272c38;
+      padding:5px 10px; border-radius:5px; font-size:13px; width:160px; outline:none;
+    }}
+    #search:focus {{ border-color:#5b8def; }}
+    .go-btn {{
+      background:#1a2a50; color:#6a9eff; border:1px solid #2a4080;
+      padding:5px 12px; border-radius:5px; font-size:13px; cursor:pointer; white-space:nowrap;
+    }}
+    .go-btn:hover {{ background:#223366; }}
+    .pbtn {{
+      background:#1a1d25; color:#99aabb; border:1px solid #272c38;
+      padding:4px 10px; border-radius:5px; font-size:11px; cursor:pointer;
+    }}
+    .pbtn:hover {{ background:#222733; color:#dde; }}
+    .pbtn.active {{ background:#1a2a50; color:#6a9eff; border-color:#2a4080; }}
+    #bt-btn {{
+      background:#2a1a10; color:#e8962a; border:1px solid #4a3018;
+      padding:4px 10px; border-radius:5px; font-size:11px; cursor:pointer;
+    }}
+    #bt-btn:hover {{ background:#3a2818; }}
+    #rp-btn {{
+      margin-left:auto; background:#1a2a20; color:#3dbb6a; border:1px solid #1a4a28;
+      padding:4px 10px; border-radius:5px; font-size:11px; cursor:pointer;
+    }}
+    #rp-btn:hover {{ background:#2a3a28; }}
+
+    /* stock tabs */
+    #stock-tabs {{
+      position:fixed; top:44px; left:0; right:280px; height:30px; z-index:20;
+      background:#0f1014; border-bottom:1px solid #181b22;
+      display:flex; align-items:center; gap:4px; padding:0 12px; overflow-x:auto;
+    }}
+    .tab {{
+      background:#191c24; border:1px solid #252933; border-radius:5px;
+      padding:3px 10px; font-size:12px; color:#99aabb; cursor:pointer;
+      display:flex; align-items:center; gap:6px; white-space:nowrap;
+    }}
+    .tab:hover {{ background:#1e2230; color:#dde; }}
+    .tab.active {{ background:#1a2a50; color:#6a9eff; border-color:#2a4080; }}
+    .tab-close {{ font-size:11px; color:#556; cursor:pointer; padding:0 2px; }}
+    .tab-close:hover {{ color:#e84848; }}
+
+    /* main layout */
+    #main {{
+      position:fixed; top:74px; left:0; right:0; bottom:0;
+      display:flex; overflow:hidden;
+    }}
+
+    /* chart area */
+    #chart-wrap {{ flex:1; position:relative; overflow:hidden; }}
+    #chart {{ width:100%; height:100%; }}
+    #overlay {{
+      position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+      font-size:13px; color:#556; z-index:5;
+    }}
+
+    /* sidebar stats */
+    #stats {{
+      width:280px; background:#13151a; border-left:1px solid #1e2028;
+      padding:14px; overflow-y:auto;
+    }}
+    .sl {{ font-size:10px; color:#445; text-transform:uppercase; letter-spacing:.6px; margin-top:12px; }}
+    .sl:first-child {{ margin-top:0; }}
+    .sv {{ font-size:20px; font-weight:700; color:#dde; margin-top:1px; }}
+    .ss {{ font-size:11px; color:#667; margin-top:1px; }}
+    .up {{ color:#3dbb6a; }}
+    .dn {{ color:#e84848; }}
+
+    /* backtest panel */
+    #backtest-panel {{
+      position:fixed; top:74px; right:280px; width:340px; max-height:calc(100vh - 84px);
+      background:#13151a; border:1px solid #21242e; border-radius:8px;
+      box-shadow:0 6px 24px rgba(0,0,0,.5); z-index:40; display:none; flex-direction:column;
+      overflow:hidden;
+    }}
+    #bt-header {{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:8px 12px; border-bottom:1px solid #1e2028;
+      font-weight:600; font-size:13px; color:#dde;
+    }}
+    #bt-close {{ background:none; border:none; color:#556; cursor:pointer; font-size:16px; }}
+    #bt-content {{ padding:12px; overflow-y:auto; }}
+  </style>
+</head>
+<body>
+
+<div id="tb">
+  <span class="brand">Stock AI</span>
+  <div class="tsep"></div>
+  <input id="search" placeholder="2330.TW / NVDA" value="2330.TW">
+  <button class="go-btn" onclick="loadStock()">Go</button>
+  <div class="tsep"></div>
+  <button class="pbtn active" onclick="setPeriod(90,this)">3M</button>
+  <button class="pbtn" onclick="setPeriod(30,this)">1M</button>
+  <button class="pbtn" onclick="setPeriod(180,this)">6M</button>
+  <button class="pbtn" onclick="setPeriod(365,this)">1Y</button>
+  <button id="bt-btn" onclick="runBacktest()">HMM Backtest</button>
+</div>
+
+<div id="stock-tabs"></div>
+
+<div id="main">
+  <div id="chart-wrap">
+    <div id="chart"></div>
+    <div id="overlay">Loading...</div>
+  </div>
+  <div id="stats">
+    <div class="sl">Symbol</div>
+    <div class="sv" id="s-sym">--</div>
+    <div class="sl">Price</div>
+    <div class="sv" id="s-price">--</div>
+    <div class="ss" id="s-change">--</div>
+    <div class="sl">Volume</div>
+    <div class="sv" id="s-vol" style="font-size:15px">--</div>
+    <div class="sl">High / Low</div>
+    <div class="sv" id="s-hl" style="font-size:14px">--</div>
+    <div class="sl">RSI (14)</div>
+    <div class="sv" id="s-rsi">--</div>
+    <div class="sl">MACD</div>
+    <div class="sv" id="s-macd" style="font-size:13px">--</div>
+  </div>
+</div>
+
+<div id="backtest-panel">
+  <div id="bt-header"><span>HMM Regime Analysis</span><button id="bt-close" onclick="document.getElementById('backtest-panel').style.display='none'">&times;</button></div>
+  <div id="bt-content">Click HMM Backtest to run analysis</div>
+</div>
+
+<script>{bundle_js}</script>
+</body>
+</html>"#);
+
+    fs::write(&html_path, html).expect("failed to write webui.html");
+
+    println!("cargo:rerun-if-changed=webui/src/app.tsx");
+    println!("cargo:rerun-if-changed=webui/package.json");
+}
+
+#[cfg(not(windows))]
+fn dirs_home_bun() -> String {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());
+    format!("{home}/.bun/bin/bun")
+}

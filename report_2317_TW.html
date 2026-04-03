@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2317.TW Foxconn 鴻海 — HMM Regime Analysis</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0d1117; color:#e6edf3; font-family:'SF Mono',Menlo,Consolas,monospace; }
+.grid { display:grid; grid-template-columns:1fr 340px; gap:16px; padding:16px; max-width:1440px; margin:auto; }
+.card { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:16px; }
+h1 { font-size:20px; font-weight:700; margin-bottom:4px; }
+.subtitle { color:#8b949e; font-size:13px; margin-bottom:12px; }
+#chart-main { height:520px; }
+.sidebar { display:flex; flex-direction:column; gap:12px; }
+.indicator-row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #21262d; font-size:13px; }
+.indicator-label { color:#8b949e; }
+.indicator-value { font-weight:600; }
+.tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+.tag-green { background:#22c55e22; color:#22c55e; border:1px solid #22c55e44; }
+.tag-red { background:#ef444422; color:#ef4444; border:1px solid #ef444444; }
+.tag-yellow { background:#eab30822; color:#eab308; border:1px solid #eab30844; }
+.tag-blue { background:#2563eb22; color:#2563eb; border:1px solid #2563eb44; }
+.regime-box { text-align:center; padding:12px; border-radius:8px; margin:4px 0; }
+.regime-bull { background:#22c55e15; border:1px solid #22c55e44; }
+.regime-bear { background:#ef444415; border:1px solid #ef444444; }
+.regime-choppy { background:#eab30815; border:1px solid #eab30844; }
+.state-bar { display:flex; height:24px; border-radius:4px; overflow:hidden; margin:8px 0; }
+.state-bar div { display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+th { text-align:left; color:#8b949e; padding:6px 8px; border-bottom:1px solid #30363d; }
+td { padding:6px 8px; border-bottom:1px solid #21262d; }
+.win { color:#22c55e; }
+.loss { color:#ef4444; }
+.rec-box { padding:12px; border-radius:8px; margin-top:8px; font-size:13px; line-height:1.6; }
+.rec-bull { background:#22c55e10; border:1px solid #22c55e33; }
+.rec-bear { background:#ef444410; border:1px solid #ef444433; }
+.rec-choppy { background:#eab30810; border:1px solid #eab30833; }
+.full-width { grid-column:1/-1; }
+@media(max-width:900px) { .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="grid">
+  <!-- Header -->
+  <div class="card full-width" style="display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <h1>2317.TW — Foxconn 鴻海</h1>
+      <div class="subtitle">HMM Regime Analysis | Source: yfinance | Generated: 2026-04-03</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:28px;font-weight:700">193.00</div>
+      <div class="subtitle">Latest Close</div>
+    </div>
+  </div>
+
+  <!-- Main Chart -->
+  <div class="card">
+    <div style="font-size:14px;font-weight:600;margin-bottom:8px">K-Line + HMM Regime Overlay</div>
+    <div id="chart-main"></div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <!-- Current Regime -->
+    <div class="card">
+      <div style="font-size:12px;color:#8b949e;margin-bottom:8px">CURRENT REGIME</div>
+      <div class="regime-box regime-bear">
+        <div style="font-size:22px;font-weight:700;color:#ef4444">BEAR_VOLATILE</div>
+        <div style="font-size:13px;color:#ef4444aa">高波動崩盤</div>
+      </div>
+      <div style="text-align:center;margin-top:6px;font-size:12px;color:#8b949e">
+        State 0 | 15.8% of days |
+        Avg Ret -1.51%
+      </div>
+    </div>
+
+    <!-- State Distribution -->
+    <div class="card">
+      <div style="font-size:12px;color:#8b949e;margin-bottom:6px">STATE DISTRIBUTION (4 states)</div>
+      <div class="state-bar">
+        <div style="width:82.5%;background:#eab308" title="BULL_VOLATILE">2</div>
+        <div style="width:0.8%;background:#ef4444" title="BEAR_VOLATILE">3</div>
+        <div style="width:15.8%;background:#ef4444" title="BEAR_VOLATILE">0</div>
+        <div style="width:0.8%;background:#ef4444" title="BEAR_VOLATILE">1</div>
+      </div>
+      <table style="margin-top:4px">
+        <tr><th>State</th><th>Label</th><th>Days</th><th>Avg Ret</th></tr>
+        <tr><td>2</td><td style="color:#eab308">BULL_VOLATILE</td><td>198</td><td class="win">+0.57%</td></tr>
+        <tr><td>3</td><td style="color:#ef4444">BEAR_VOLATILE</td><td>2</td><td class="loss">-0.42%</td></tr>
+        <tr><td>0</td><td style="color:#ef4444">BEAR_VOLATILE</td><td>38</td><td class="loss">-1.51%</td></tr>
+        <tr><td>1</td><td style="color:#ef4444">BEAR_VOLATILE</td><td>2</td><td class="loss">-5.00%</td></tr>
+      </table>
+    </div>
+
+    <!-- Technical Indicators -->
+    <div class="card">
+      <div style="font-size:12px;color:#8b949e;margin-bottom:6px">TECHNICAL INDICATORS</div>
+      <div class="indicator-row">
+        <span class="indicator-label">RSI(14)</span>
+        <span>30.6 <span class="tag tag-blue">NEUTRAL</span></span>
+      </div>
+      <div class="indicator-row">
+        <span class="indicator-label">MACD</span>
+        <span>-7.71</span>
+      </div>
+      <div class="indicator-row">
+        <span class="indicator-label">Signal</span>
+        <span>-6.83</span>
+      </div>
+      <div class="indicator-row">
+        <span class="indicator-label">Histogram</span>
+        <span style="color:#ef4444">-0.88 <span class="tag tag-red">BEARISH</span></span>
+      </div>
+      <div class="indicator-row">
+        <span class="indicator-label">Bollinger</span>
+        <span>185 / 205 / 225</span>
+      </div>
+      <div class="indicator-row">
+        <span class="indicator-label">BB Position</span>
+        <span><span class="tag tag-blue">WITHIN BANDS</span></span>
+      </div>
+    </div>
+
+    <!-- Backtest -->
+    <div class="card">
+      <div style="font-size:12px;color:#8b949e;margin-bottom:6px">BACKTEST (Long in best regime)</div>
+      <div class="indicator-row">
+        <span class="indicator-label">Best State</span>
+        <span style="color:#eab308">2 (BULL_VOLATILE)</span>
+      </div>
+      <div class="indicator-row">
+        <span class="indicator-label">Trades</span>
+        <span style="font-weight:700">198</span>
+      </div>
+      <div class="indicator-row">
+        <span class="indicator-label">Win Rate</span>
+        <span class="loss" style="font-weight:700">34.3%</span>
+      </div>
+      <div class="indicator-row">
+        <span class="indicator-label">Avg Net (after fees)</span>
+        <span class="loss">-0.351%</span>
+      </div>
+      <div class="indicator-row">
+        <span class="indicator-label">Total P&L</span>
+        <span class="loss" style="font-weight:700">-69.60%</span>
+      </div>
+      <div class="indicator-row">
+        <span class="indicator-label">Cost/trade</span>
+        <span>0.435%</span>
+      </div>
+      <table style="margin-top:8px">
+        <tr><th>Date</th><th>Entry</th><th>Exit</th><th>Net</th></tr>
+        <tr><td>2026-03-24</td><td>198.5</td><td>195.0</td><td class="loss">-2.20%</td></tr>
+        <tr><td>2026-03-25</td><td>200.0</td><td>200.0</td><td class="loss">-0.43%</td></tr>
+        <tr><td>2026-03-26</td><td>202.5</td><td>200.5</td><td class="loss">-1.42%</td></tr>
+        <tr><td>2026-03-27</td><td>197.0</td><td>199.5</td><td class="win">+0.83%</td></tr>
+        <tr><td>2026-03-30</td><td>194.5</td><td>194.0</td><td class="loss">-0.69%</td></tr>
+      </table>
+    </div>
+
+    <!-- Recommendation -->
+    <div class="card">
+      <div class="rec-box rec-bear">
+        <div style="font-weight:700;color:#ef4444;margin-bottom:4px">>> BEARISH — 觀望或考慮做空</div>High risk regime, avoid long positions<br>Hard stop: ALL positions by 13:20
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Inline data
+const klineData = [{"date": "2025-04-07", "open": 133.65, "high": 133.65, "low": 133.65, "close": 133.65, "volume": 26126364, "state": 1}, {"date": "2025-04-08", "open": 122.55, "high": 125.93, "low": 120.62, "close": 120.62, "volume": 301202019, "state": 3}, {"date": "2025-04-09", "open": 114.83, "high": 118.21, "low": 108.56, "close": 108.56, "volume": 358282270, "state": 1}, {"date": "2025-04-10", "open": 119.17, "high": 119.17, "low": 119.17, "close": 119.17, "volume": 35122259, "state": 0}, {"date": "2025-04-11", "open": 114.35, "high": 130.27, "low": 112.9, "close": 129.79, "volume": 293820443, "state": 3}, {"date": "2025-04-14", "open": 136.54, "high": 139.92, "low": 131.23, "close": 133.65, "volume": 210223406, "state": 0}, {"date": "2025-04-15", "open": 134.13, "high": 135.09, "low": 131.23, "close": 134.61, "volume": 84519852, "state": 0}, {"date": "2025-04-16", "open": 133.16, "high": 134.61, "low": 131.23, "close": 131.23, "volume": 59628853, "state": 0}, {"date": "2025-04-17", "open": 129.79, "high": 130.75, "low": 127.37, "close": 129.79, "volume": 63502645, "state": 2}, {"date": "2025-04-18", "open": 130.27, "high": 131.72, "low": 128.82, "close": 130.75, "volume": 25953939, "state": 2}, {"date": "2025-04-21", "open": 130.27, "high": 132.2, "low": 129.79, "close": 131.72, "volume": 31715258, "state": 2}, {"date": "2025-04-22", "open": 129.79, "high": 131.23, "low": 126.89, "close": 127.37, "volume": 43756112, "state": 0}, {"date": "2025-04-23", "open": 131.23, "high": 134.61, "low": 131.23, "close": 134.13, "volume": 64790108, "state": 2}, {"date": "2025-04-24", "open": 134.13, "high": 134.13, "low": 130.75, "close": 131.72, "volume": 43373263, "state": 2}, {"date": "2025-04-25", "open": 135.58, "high": 136.06, "low": 133.65, "close": 134.13, "volume": 53501504, "state": 2}, {"date": "2025-04-28", "open": 135.09, "high": 138.47, "low": 135.09, "close": 137.51, "volume": 46661370, "state": 2}, {"date": "2025-04-29", "open": 136.54, "high": 138.47, "low": 136.06, "close": 137.99, "volume": 37793068, "state": 2}, {"date": "2025-04-30", "open": 137.99, "high": 138.95, "low": 136.54, "close": 136.54, "volume": 41225512, "state": 2}, {"date": "2025-05-02", "open": 139.44, "high": 142.81, "low": 138.95, "close": 142.33, "volume": 58858234, "state": 2}, {"date": "2025-05-05", "open": 143.78, "high": 143.78, "low": 137.02, "close": 137.51, "volume": 65835101, "state": 0}, {"date": "2025-05-06", "open": 137.51, "high": 141.37, "low": 137.02, "close": 140.88, "volume": 52642201, "state": 2}, {"date": "2025-05-07", "open": 141.37, "high": 142.81, "low": 138.47, "close": 139.92, "volume": 42941757, "state": 2}, {"date": "2025-05-08", "open": 140.4, "high": 141.37, "low": 139.44, "close": 140.88, "volume": 28650766, "state": 2}, {"date": "2025-05-09", "open": 141.37, "high": 142.33, "low": 140.4, "close": 141.85, "volume": 29653062, "state": 2}, {"date": "2025-05-12", "open": 143.78, "high": 147.64, "low": 143.3, "close": 147.64, "volume": 58159600, "state": 2}, {"date": "2025-05-13", "open": 153.91, "high": 155.84, "low": 151.5, "close": 152.46, "volume": 91396561, "state": 2}, {"date": "2025-05-14", "open": 155.84, "high": 157.29, "low": 153.91, "close": 157.29, "volume": 68720158, "state": 2}, {"date": "2025-05-15", "open": 157.29, "high": 157.29, "low": 152.95, "close": 153.91, "volume": 68371776, "state": 2}, {"date": "2025-05-16", "open": 152.95, "high": 153.91, "low": 151.5, "close": 152.46, "volume": 34064080, "state": 2}, {"date": "2025-05-19", "open": 151.5, "high": 152.46, "low": 148.6, "close": 148.6, "volume": 51994460, "state": 2}, {"date": "2025-05-20", "open": 151.5, "high": 152.95, "low": 148.12, "close": 148.6, "volume": 40404578, "state": 2}, {"date": "2025-05-21", "open": 149.57, "high": 151.02, "low": 149.09, "close": 149.57, "volume": 28794921, "state": 2}, {"date": "2025-05-22", "open": 148.12, "high": 148.6, "low": 146.19, "close": 147.64, "volume": 36180030, "state": 2}, {"date": "2025-05-23", "open": 150.53, "high": 150.53, "low": 147.64, "close": 148.6, "volume": 22240124, "state": 2}, {"date": "2025-05-26", "open": 147.16, "high": 149.57, "low": 145.71, "close": 147.64, "volume": 28674499, "state": 2}, {"date": "2025-05-27", "open": 148.12, "high": 149.57, "low": 146.67, "close": 146.67, "volume": 27178660, "state": 2}, {"date": "2025-05-28", "open": 148.6, "high": 148.6, "low": 146.19, "close": 146.67, "volume": 31301270, "state": 2}, {"date": "2025-05-29", "open": 149.09, "high": 152.46, "low": 148.6, "close": 150.53, "volume": 88695221, "state": 2}, {"date": "2025-06-02", "open": 148.6, "high": 149.09, "low": 145.71, "close": 147.16, "volume": 54596606, "state": 2}, {"date": "2025-06-03", "open": 148.12, "high": 149.57, "low": 146.19, "close": 146.19, "volume": 37496603, "state": 2}, {"date": "2025-06-04", "open": 148.12, "high": 150.53, "low": 147.64, "close": 150.53, "volume": 39430089, "state": 2}, {"date": "2025-06-05", "open": 151.02, "high": 151.5, "low": 150.05, "close": 150.05, "volume": 34135967, "state": 2}, {"date": "2025-06-06", "open": 150.05, "high": 150.05, "low": 147.64, "close": 147.64, "volume": 23622232, "state": 2}, {"date": "2025-06-09", "open": 149.57, "high": 150.05, "low": 148.6, "close": 149.09, "volume": 18242233, "state": 2}, {"date": "2025-06-10", "open": 150.05, "high": 150.53, "low": 149.57, "close": 150.05, "volume": 31625938, "state": 2}, {"date": "2025-06-11", "open": 151.02, "high": 151.98, "low": 150.05, "close": 150.53, "volume": 26921144, "state": 2}, {"date": "2025-06-12", "open": 150.05, "high": 152.46, "low": 148.6, "close": 151.98, "volume": 32770167, "state": 2}, {"date": "2025-06-13", "open": 151.5, "high": 152.95, "low": 150.53, "close": 151.02, "volume": 37075939, "state": 2}, {"date": "2025-06-16", "open": 150.53, "high": 151.5, "low": 149.09, "close": 149.57, "volume": 21564832, "state": 2}, {"date": "2025-06-17", "open": 151.02, "high": 151.5, "low": 149.09, "close": 149.57, "volume": 25153697, "state": 2}, {"date": "2025-06-18", "open": 149.57, "high": 151.02, "low": 148.6, "close": 150.53, "volume": 34125837, "state": 2}, {"date": "2025-06-19", "open": 150.05, "high": 150.53, "low": 148.6, "close": 148.6, "volume": 20289055, "state": 2}, {"date": "2025-06-20", "open": 149.09, "high": 150.05, "low": 147.64, "close": 150.05, "volume": 58365008, "state": 2}, {"date": "2025-06-23", "open": 147.64, "high": 150.53, "low": 146.67, "close": 150.53, "volume": 48485749, "state": 2}, {"date": "2025-06-24", "open": 152.46, "high": 156.32, "low": 151.98, "close": 154.88, "volume": 66177329, "state": 2}, {"date": "2025-06-25", "open": 155.84, "high": 156.32, "low": 154.39, "close": 156.32, "volume": 48074338, "state": 2}, {"date": "2025-06-26", "open": 156.32, "high": 158.25, "low": 155.84, "close": 157.29, "volume": 64983063, "state": 2}, {"date": "2025-06-27", "open": 157.29, "high": 159.7, "low": 156.81, "close": 159.22, "volume": 74726884, "state": 2}, {"date": "2025-06-30", "open": 160.18, "high": 160.66, "low": 155.36, "close": 155.36, "volume": 59551541, "state": 2}, {"date": "2025-07-01", "open": 155.84, "high": 160.18, "low": 155.36, "close": 159.7, "volume": 101734619, "state": 2}, {"date": "2025-07-02", "open": 160.0, "high": 162.0, "low": 160.0, "close": 162.0, "volume": 64904578, "state": 2}, {"date": "2025-07-03", "open": 164.0, "high": 164.5, "low": 163.0, "close": 164.0, "volume": 45499276, "state": 2}, {"date": "2025-07-04", "open": 164.0, "high": 164.5, "low": 160.5, "close": 161.0, "volume": 27434055, "state": 2}, {"date": "2025-07-07", "open": 161.0, "high": 162.0, "low": 159.5, "close": 161.0, "volume": 23838993, "state": 2}, {"date": "2025-07-08", "open": 160.5, "high": 161.0, "low": 158.5, "close": 159.0, "volume": 30285544, "state": 2}, {"date": "2025-07-09", "open": 159.5, "high": 161.5, "low": 159.0, "close": 161.0, "volume": 28926202, "state": 2}, {"date": "2025-07-10", "open": 161.0, "high": 162.5, "low": 160.0, "close": 161.5, "volume": 29653356, "state": 2}, {"date": "2025-07-11", "open": 161.5, "high": 162.5, "low": 160.5, "close": 161.5, "volume": 20131944, "state": 2}, {"date": "2025-07-14", "open": 161.5, "high": 162.5, "low": 160.5, "close": 160.5, "volume": 18584525, "state": 2}, {"date": "2025-07-15", "open": 160.0, "high": 163.0, "low": 160.0, "close": 163.0, "volume": 20264333, "state": 2}, {"date": "2025-07-16", "open": 163.0, "high": 164.0, "low": 162.5, "close": 162.5, "volume": 23986877, "state": 2}, {"date": "2025-07-17", "open": 163.0, "high": 164.0, "low": 162.5, "close": 164.0, "volume": 20425825, "state": 2}, {"date": "2025-07-18", "open": 165.0, "high": 166.0, "low": 164.5, "close": 165.5, "volume": 34053809, "state": 2}, {"date": "2025-07-21", "open": 166.0, "high": 166.5, "low": 164.5, "close": 165.0, "volume": 16688671, "state": 2}, {"date": "2025-07-22", "open": 165.0, "high": 166.0, "low": 161.5, "close": 162.0, "volume": 37854645, "state": 2}, {"date": "2025-07-23", "open": 163.5, "high": 166.0, "low": 163.5, "close": 166.0, "volume": 50337916, "state": 2}, {"date": "2025-07-24", "open": 168.0, "high": 174.0, "low": 167.5, "close": 174.0, "volume": 124903778, "state": 2}, {"date": "2025-07-25", "open": 175.5, "high": 175.5, "low": 173.0, "close": 174.5, "volume": 55406174, "state": 2}, {"date": "2025-07-28", "open": 176.0, "high": 178.0, "low": 175.5, "close": 176.0, "volume": 54693143, "state": 2}, {"date": "2025-07-29", "open": 175.0, "high": 175.5, "low": 171.0, "close": 171.5, "volume": 48559908, "state": 2}, {"date": "2025-08-04", "open": 179.5, "high": 181.0, "low": 178.5, "close": 180.0, "volume": 43591055, "state": 2}, {"date": "2025-08-05", "open": 182.0, "high": 185.0, "low": 182.0, "close": 184.5, "volume": 50872232, "state": 2}, {"date": "2025-08-06", "open": 185.5, "high": 188.5, "low": 184.0, "close": 186.0, "volume": 67331558, "state": 2}, {"date": "2025-08-07", "open": 190.0, "high": 195.0, "low": 190.0, "close": 194.5, "volume": 116627300, "state": 2}, {"date": "2025-08-08", "open": 197.0, "high": 197.0, "low": 193.5, "close": 194.5, "volume": 63362046, "state": 2}, {"date": "2025-08-11", "open": 194.0, "high": 198.0, "low": 192.5, "close": 198.0, "volume": 50587400, "state": 2}, {"date": "2025-08-12", "open": 198.5, "high": 199.0, "low": 195.5, "close": 197.0, "volume": 37740908, "state": 2}, {"date": "2025-08-13", "open": 198.0, "high": 199.0, "low": 193.5, "close": 198.5, "volume": 99654169, "state": 2}, {"date": "2025-08-14", "open": 197.5, "high": 200.0, "low": 197.0, "close": 199.5, "volume": 76141475, "state": 2}, {"date": "2025-08-15", "open": 205.0, "high": 208.0, "low": 202.0, "close": 207.0, "volume": 152202911, "state": 2}, {"date": "2025-08-18", "open": 207.5, "high": 210.0, "low": 206.0, "close": 210.0, "volume": 71303659, "state": 2}, {"date": "2025-08-19", "open": 210.0, "high": 212.0, "low": 208.0, "close": 208.0, "volume": 48799892, "state": 2}, {"date": "2025-08-20", "open": 206.0, "high": 206.5, "low": 200.0, "close": 200.5, "volume": 120493896, "state": 0}, {"date": "2025-08-21", "open": 201.0, "high": 206.0, "low": 201.0, "close": 206.0, "volume": 66575736, "state": 0}, {"date": "2025-08-22", "open": 208.0, "high": 208.0, "low": 202.0, "close": 202.5, "volume": 52817040, "state": 0}, {"date": "2025-08-25", "open": 207.0, "high": 208.0, "low": 206.0, "close": 207.5, "volume": 51151687, "state": 2}, {"date": "2025-08-26", "open": 207.0, "high": 209.0, "low": 206.0, "close": 209.0, "volume": 40946610, "state": 2}, {"date": "2025-08-27", "open": 210.0, "high": 210.0, "low": 207.5, "close": 208.0, "volume": 39112918, "state": 2}, {"date": "2025-08-28", "open": 207.5, "high": 207.5, "low": 204.0, "close": 206.0, "volume": 45436240, "state": 2}, {"date": "2025-08-29", "open": 206.0, "high": 207.0, "low": 202.5, "close": 203.5, "volume": 52960909, "state": 2}, {"date": "2025-09-01", "open": 203.0, "high": 204.5, "low": 197.0, "close": 198.5, "volume": 67997565, "state": 0}, {"date": "2025-09-02", "open": 200.0, "high": 203.5, "low": 198.0, "close": 198.5, "volume": 34829147, "state": 0}, {"date": "2025-09-03", "open": 198.5, "high": 201.0, "low": 197.0, "close": 200.5, "volume": 33636295, "state": 2}, {"date": "2025-09-04", "open": 203.0, "high": 205.0, "low": 202.0, "close": 203.0, "volume": 41160693, "state": 2}, {"date": "2025-09-05", "open": 205.5, "high": 206.5, "low": 203.0, "close": 205.0, "volume": 37057097, "state": 2}, {"date": "2025-09-08", "open": 206.0, "high": 207.5, "low": 202.0, "close": 203.5, "volume": 44569167, "state": 2}, {"date": "2025-09-09", "open": 204.5, "high": 208.0, "low": 204.0, "close": 207.5, "volume": 63494345, "state": 2}, {"date": "2025-09-10", "open": 211.0, "high": 211.0, "low": 209.0, "close": 210.0, "volume": 84148890, "state": 2}, {"date": "2025-09-11", "open": 212.0, "high": 216.5, "low": 209.0, "close": 214.5, "volume": 129973733, "state": 2}, {"date": "2025-09-12", "open": 217.0, "high": 218.5, "low": 216.5, "close": 217.5, "volume": 71479522, "state": 2}, {"date": "2025-09-15", "open": 218.5, "high": 218.5, "low": 213.0, "close": 216.0, "volume": 55330938, "state": 2}, {"date": "2025-09-16", "open": 217.0, "high": 217.0, "low": 213.5, "close": 215.5, "volume": 49662786, "state": 2}, {"date": "2025-09-17", "open": 214.0, "high": 214.5, "low": 211.0, "close": 212.0, "volume": 55894730, "state": 2}, {"date": "2025-09-18", "open": 211.5, "high": 216.0, "low": 208.0, "close": 215.0, "volume": 78891977, "state": 2}, {"date": "2025-09-19", "open": 216.5, "high": 217.0, "low": 214.0, "close": 214.0, "volume": 56361409, "state": 2}, {"date": "2025-09-22", "open": 215.5, "high": 218.0, "low": 214.0, "close": 216.0, "volume": 33805955, "state": 2}, {"date": "2025-09-23", "open": 218.0, "high": 222.0, "low": 217.5, "close": 221.0, "volume": 103442188, "state": 2}, {"date": "2025-09-24", "open": 222.0, "high": 223.0, "low": 219.0, "close": 223.0, "volume": 64385629, "state": 2}, {"date": "2025-09-25", "open": 223.0, "high": 231.0, "low": 222.5, "close": 230.0, "volume": 123630302, "state": 2}, {"date": "2025-09-26", "open": 230.0, "high": 230.5, "low": 218.5, "close": 219.5, "volume": 116991800, "state": 0}, {"date": "2025-09-30", "open": 224.0, "high": 224.0, "low": 215.5, "close": 216.0, "volume": 87033036, "state": 0}, {"date": "2025-10-01", "open": 219.0, "high": 222.0, "low": 216.0, "close": 219.0, "volume": 57644055, "state": 2}, {"date": "2025-10-02", "open": 221.5, "high": 226.0, "low": 221.0, "close": 225.5, "volume": 71706441, "state": 2}, {"date": "2025-10-03", "open": 226.0, "high": 228.0, "low": 224.5, "close": 226.5, "volume": 51488648, "state": 2}, {"date": "2025-10-07", "open": 230.0, "high": 231.5, "low": 225.0, "close": 228.5, "volume": 64479912, "state": 2}, {"date": "2025-10-08", "open": 225.0, "high": 225.5, "low": 222.0, "close": 225.0, "volume": 48654405, "state": 2}, {"date": "2025-10-09", "open": 227.0, "high": 227.0, "low": 221.0, "close": 221.5, "volume": 54969959, "state": 2}, {"date": "2025-10-13", "open": 210.0, "high": 216.0, "low": 210.0, "close": 213.0, "volume": 105751618, "state": 0}, {"date": "2025-10-14", "open": 216.0, "high": 217.5, "low": 205.0, "close": 206.0, "volume": 103962992, "state": 0}, {"date": "2025-10-15", "open": 207.5, "high": 208.0, "low": 203.0, "close": 206.5, "volume": 63725983, "state": 2}, {"date": "2025-10-16", "open": 215.0, "high": 225.5, "low": 211.5, "close": 223.0, "volume": 150705656, "state": 2}, {"date": "2025-10-17", "open": 224.0, "high": 230.0, "low": 222.5, "close": 226.5, "volume": 117393949, "state": 2}, {"date": "2025-10-20", "open": 230.0, "high": 239.5, "low": 229.0, "close": 238.5, "volume": 149270185, "state": 2}, {"date": "2025-10-21", "open": 241.5, "high": 245.5, "low": 238.0, "close": 239.0, "volume": 117969555, "state": 2}, {"date": "2025-10-22", "open": 238.0, "high": 243.0, "low": 236.5, "close": 242.5, "volume": 69466417, "state": 2}, {"date": "2025-10-23", "open": 240.0, "high": 240.5, "low": 238.0, "close": 239.0, "volume": 47487658, "state": 2}, {"date": "2025-10-27", "open": 249.0, "high": 249.0, "low": 243.0, "close": 246.5, "volume": 78976148, "state": 2}, {"date": "2025-10-28", "open": 248.0, "high": 250.0, "low": 246.5, "close": 250.0, "volume": 72210529, "state": 2}, {"date": "2025-10-29", "open": 254.0, "high": 263.0, "low": 253.0, "close": 260.0, "volume": 122095968, "state": 2}, {"date": "2025-10-30", "open": 262.5, "high": 265.0, "low": 256.5, "close": 262.0, "volume": 105395242, "state": 2}, {"date": "2025-10-31", "open": 261.0, "high": 262.0, "low": 257.0, "close": 257.5, "volume": 60671044, "state": 2}, {"date": "2025-11-03", "open": 255.0, "high": 256.5, "low": 250.0, "close": 251.5, "volume": 92588580, "state": 0}, {"date": "2025-11-04", "open": 252.0, "high": 255.0, "low": 244.0, "close": 244.0, "volume": 91077032, "state": 0}, {"date": "2025-11-05", "open": 239.0, "high": 248.5, "low": 237.0, "close": 247.0, "volume": 111699424, "state": 0}, {"date": "2025-11-06", "open": 249.5, "high": 250.5, "low": 246.0, "close": 248.0, "volume": 64418664, "state": 2}, {"date": "2025-11-07", "open": 246.0, "high": 250.5, "low": 244.0, "close": 244.0, "volume": 48667340, "state": 2}, {"date": "2025-11-10", "open": 245.0, "high": 250.0, "low": 244.0, "close": 249.5, "volume": 50699016, "state": 2}, {"date": "2025-11-11", "open": 251.0, "high": 252.0, "low": 246.5, "close": 246.5, "volume": 49323677, "state": 2}, {"date": "2025-11-12", "open": 248.0, "high": 252.0, "low": 245.0, "close": 251.0, "volume": 63578429, "state": 2}, {"date": "2025-11-13", "open": 256.0, "high": 256.0, "low": 247.0, "close": 252.0, "volume": 89314039, "state": 2}, {"date": "2025-11-14", "open": 246.5, "high": 247.0, "low": 241.0, "close": 241.0, "volume": 107025603, "state": 0}, {"date": "2025-11-17", "open": 241.0, "high": 242.0, "low": 235.0, "close": 236.0, "volume": 82230187, "state": 0}, {"date": "2025-11-18", "open": 231.5, "high": 237.0, "low": 230.0, "close": 230.0, "volume": 74877047, "state": 0}, {"date": "2025-11-19", "open": 226.5, "high": 230.0, "low": 226.5, "close": 229.0, "volume": 69017030, "state": 2}, {"date": "2025-11-20", "open": 237.0, "high": 238.0, "low": 232.5, "close": 236.5, "volume": 77074387, "state": 2}, {"date": "2025-11-21", "open": 226.0, "high": 229.5, "low": 225.0, "close": 225.0, "volume": 92224538, "state": 0}, {"date": "2025-11-24", "open": 226.5, "high": 227.0, "low": 220.0, "close": 220.0, "volume": 96559056, "state": 0}, {"date": "2025-11-25", "open": 225.0, "high": 226.0, "low": 219.0, "close": 219.0, "volume": 71531864, "state": 0}, {"date": "2025-11-26", "open": 221.0, "high": 228.0, "low": 221.0, "close": 227.0, "volume": 67295295, "state": 2}, {"date": "2025-11-27", "open": 229.0, "high": 232.0, "low": 226.0, "close": 231.0, "volume": 62010923, "state": 2}, {"date": "2025-11-28", "open": 229.5, "high": 229.5, "low": 225.0, "close": 225.5, "volume": 55419918, "state": 2}, {"date": "2025-12-01", "open": 225.0, "high": 226.0, "low": 222.0, "close": 222.0, "volume": 50775578, "state": 2}, {"date": "2025-12-02", "open": 220.5, "high": 225.0, "low": 220.5, "close": 222.0, "volume": 48093660, "state": 2}, {"date": "2025-12-03", "open": 225.0, "high": 230.0, "low": 225.0, "close": 227.0, "volume": 51488715, "state": 2}, {"date": "2025-12-04", "open": 230.0, "high": 230.0, "low": 227.5, "close": 228.5, "volume": 25112739, "state": 2}, {"date": "2025-12-05", "open": 229.0, "high": 231.5, "low": 228.5, "close": 231.0, "volume": 34284096, "state": 2}, {"date": "2025-12-08", "open": 231.5, "high": 232.0, "low": 229.0, "close": 232.0, "volume": 29235914, "state": 2}, {"date": "2025-12-09", "open": 233.0, "high": 236.5, "low": 232.0, "close": 235.0, "volume": 53342004, "state": 2}, {"date": "2025-12-10", "open": 236.0, "high": 236.0, "low": 232.0, "close": 233.5, "volume": 35301661, "state": 2}, {"date": "2025-12-11", "open": 234.0, "high": 234.5, "low": 226.0, "close": 226.0, "volume": 56426793, "state": 0}, {"date": "2025-12-12", "open": 227.0, "high": 228.5, "low": 225.0, "close": 227.0, "volume": 28800768, "state": 2}, {"date": "2025-12-15", "open": 221.0, "high": 223.0, "low": 220.5, "close": 221.5, "volume": 41393524, "state": 2}, {"date": "2025-12-16", "open": 220.0, "high": 220.5, "low": 215.0, "close": 218.0, "volume": 59731441, "state": 2}, {"date": "2025-12-17", "open": 218.0, "high": 219.5, "low": 216.0, "close": 216.5, "volume": 41170423, "state": 2}, {"date": "2025-12-18", "open": 214.5, "high": 217.0, "low": 213.5, "close": 216.0, "volume": 47662851, "state": 2}, {"date": "2025-12-19", "open": 219.0, "high": 221.5, "low": 218.0, "close": 221.5, "volume": 40816061, "state": 2}, {"date": "2025-12-22", "open": 224.5, "high": 225.5, "low": 223.0, "close": 224.0, "volume": 39334152, "state": 2}, {"date": "2025-12-23", "open": 225.5, "high": 226.0, "low": 223.5, "close": 224.0, "volume": 29072621, "state": 2}, {"date": "2025-12-24", "open": 225.5, "high": 227.5, "low": 224.0, "close": 224.0, "volume": 35691897, "state": 2}, {"date": "2025-12-26", "open": 225.5, "high": 227.5, "low": 224.5, "close": 225.5, "volume": 28309367, "state": 2}, {"date": "2025-12-29", "open": 227.0, "high": 233.0, "low": 226.5, "close": 231.0, "volume": 56570767, "state": 2}, {"date": "2025-12-30", "open": 230.5, "high": 231.0, "low": 228.0, "close": 228.0, "volume": 35182695, "state": 2}, {"date": "2025-12-31", "open": 228.5, "high": 231.5, "low": 228.0, "close": 230.5, "volume": 40505358, "state": 2}, {"date": "2026-01-02", "open": 232.0, "high": 233.5, "low": 229.0, "close": 232.0, "volume": 57704460, "state": 2}, {"date": "2026-01-05", "open": 234.5, "high": 236.0, "low": 233.5, "close": 234.5, "volume": 63164221, "state": 2}, {"date": "2026-01-06", "open": 237.0, "high": 239.0, "low": 232.5, "close": 236.0, "volume": 63939915, "state": 2}, {"date": "2026-01-07", "open": 237.5, "high": 241.5, "low": 235.0, "close": 238.5, "volume": 82446725, "state": 2}, {"date": "2026-01-08", "open": 237.5, "high": 237.5, "low": 228.5, "close": 229.5, "volume": 85561505, "state": 0}, {"date": "2026-01-09", "open": 230.0, "high": 232.0, "low": 227.0, "close": 230.5, "volume": 36453268, "state": 0}, {"date": "2026-01-12", "open": 233.0, "high": 233.0, "low": 228.5, "close": 228.5, "volume": 31525354, "state": 2}, {"date": "2026-01-13", "open": 230.0, "high": 230.5, "low": 226.0, "close": 226.5, "volume": 42839849, "state": 2}, {"date": "2026-01-14", "open": 228.0, "high": 234.5, "low": 227.5, "close": 234.5, "volume": 63677855, "state": 2}, {"date": "2026-01-15", "open": 234.0, "high": 234.0, "low": 231.0, "close": 233.5, "volume": 34263022, "state": 2}, {"date": "2026-01-16", "open": 235.0, "high": 235.0, "low": 231.0, "close": 234.5, "volume": 47340006, "state": 2}, {"date": "2026-01-19", "open": 233.5, "high": 233.5, "low": 229.0, "close": 229.5, "volume": 51232322, "state": 2}, {"date": "2026-01-20", "open": 228.5, "high": 228.5, "low": 223.5, "close": 223.5, "volume": 73125523, "state": 2}, {"date": "2026-01-21", "open": 221.0, "high": 225.0, "low": 219.0, "close": 219.0, "volume": 72461575, "state": 2}, {"date": "2026-01-22", "open": 223.5, "high": 226.0, "low": 222.0, "close": 223.5, "volume": 46717048, "state": 2}, {"date": "2026-01-23", "open": 225.5, "high": 226.5, "low": 221.5, "close": 221.5, "volume": 32682740, "state": 2}, {"date": "2026-01-26", "open": 222.5, "high": 225.0, "low": 220.0, "close": 224.0, "volume": 38021744, "state": 2}, {"date": "2026-01-27", "open": 226.0, "high": 227.0, "low": 224.0, "close": 225.5, "volume": 35936182, "state": 2}, {"date": "2026-01-28", "open": 227.0, "high": 231.5, "low": 224.0, "close": 225.5, "volume": 77656661, "state": 2}, {"date": "2026-01-29", "open": 226.5, "high": 227.5, "low": 222.0, "close": 224.0, "volume": 54347878, "state": 2}, {"date": "2026-01-30", "open": 223.5, "high": 223.5, "low": 218.5, "close": 220.5, "volume": 68997336, "state": 2}, {"date": "2026-02-02", "open": 219.5, "high": 220.0, "low": 213.5, "close": 214.5, "volume": 61482988, "state": 2}, {"date": "2026-02-03", "open": 218.5, "high": 220.0, "low": 214.5, "close": 216.5, "volume": 40387110, "state": 2}, {"date": "2026-02-04", "open": 214.5, "high": 219.0, "low": 214.0, "close": 219.0, "volume": 26990407, "state": 2}, {"date": "2026-02-05", "open": 217.5, "high": 220.0, "low": 215.0, "close": 215.5, "volume": 41975910, "state": 2}, {"date": "2026-02-06", "open": 215.0, "high": 216.5, "low": 210.5, "close": 215.0, "volume": 54938386, "state": 2}, {"date": "2026-02-09", "open": 219.0, "high": 220.5, "low": 217.5, "close": 218.5, "volume": 30183295, "state": 2}, {"date": "2026-02-10", "open": 220.0, "high": 222.0, "low": 218.0, "close": 221.0, "volume": 46182261, "state": 2}, {"date": "2026-02-11", "open": 222.5, "high": 227.0, "low": 220.5, "close": 227.0, "volume": 65872532, "state": 2}, {"date": "2026-02-23", "open": 229.5, "high": 231.0, "low": 227.0, "close": 228.5, "volume": 81100478, "state": 2}, {"date": "2026-02-24", "open": 229.5, "high": 232.5, "low": 228.0, "close": 232.0, "volume": 66757493, "state": 2}, {"date": "2026-02-25", "open": 235.0, "high": 247.0, "low": 234.5, "close": 246.5, "volume": 162158621, "state": 2}, {"date": "2026-02-26", "open": 253.5, "high": 253.5, "low": 241.5, "close": 243.0, "volume": 117910827, "state": 0}, {"date": "2026-03-02", "open": 234.0, "high": 241.0, "low": 232.5, "close": 239.0, "volume": 72894162, "state": 0}, {"date": "2026-03-03", "open": 239.0, "high": 240.0, "low": 228.0, "close": 229.0, "volume": 84561556, "state": 0}, {"date": "2026-03-04", "open": 224.5, "high": 225.0, "low": 216.5, "close": 217.0, "volume": 117264053, "state": 0}, {"date": "2026-03-05", "open": 224.5, "high": 228.0, "low": 222.0, "close": 224.0, "volume": 54395081, "state": 0}, {"date": "2026-03-06", "open": 221.0, "high": 223.5, "low": 219.0, "close": 223.0, "volume": 36562334, "state": 0}, {"date": "2026-03-09", "open": 208.0, "high": 212.5, "low": 206.0, "close": 210.5, "volume": 89078875, "state": 0}, {"date": "2026-03-10", "open": 216.0, "high": 216.5, "low": 209.5, "close": 209.5, "volume": 66168862, "state": 0}, {"date": "2026-03-11", "open": 212.5, "high": 220.0, "low": 212.5, "close": 219.0, "volume": 53568046, "state": 2}, {"date": "2026-03-12", "open": 217.0, "high": 218.5, "low": 213.0, "close": 214.5, "volume": 42953811, "state": 2}, {"date": "2026-03-13", "open": 211.5, "high": 216.0, "low": 210.0, "close": 214.5, "volume": 35894769, "state": 2}, {"date": "2026-03-16", "open": 216.0, "high": 217.5, "low": 214.0, "close": 216.5, "volume": 37886518, "state": 2}, {"date": "2026-03-17", "open": 215.5, "high": 216.5, "low": 212.0, "close": 212.0, "volume": 106419159, "state": 2}, {"date": "2026-03-18", "open": 212.5, "high": 213.5, "low": 210.0, "close": 210.0, "volume": 72625994, "state": 2}, {"date": "2026-03-19", "open": 207.5, "high": 207.5, "low": 205.0, "close": 205.0, "volume": 83275296, "state": 2}, {"date": "2026-03-20", "open": 203.5, "high": 205.0, "low": 200.5, "close": 203.0, "volume": 89100557, "state": 2}, {"date": "2026-03-23", "open": 196.5, "high": 197.5, "low": 195.0, "close": 196.0, "volume": 73041333, "state": 2}, {"date": "2026-03-24", "open": 198.5, "high": 199.5, "low": 194.0, "close": 195.0, "volume": 53882508, "state": 2}, {"date": "2026-03-25", "open": 200.0, "high": 201.0, "low": 197.0, "close": 200.0, "volume": 40930016, "state": 2}, {"date": "2026-03-26", "open": 202.5, "high": 206.0, "low": 200.5, "close": 200.5, "volume": 40681455, "state": 2}, {"date": "2026-03-27", "open": 197.0, "high": 200.5, "low": 196.5, "close": 199.5, "volume": 28552049, "state": 2}, {"date": "2026-03-30", "open": 194.5, "high": 195.5, "low": 193.0, "close": 194.0, "volume": 44238703, "state": 2}, {"date": "2026-03-31", "open": 191.0, "high": 192.5, "low": 187.5, "close": 187.5, "volume": 85781264, "state": 0}, {"date": "2026-04-01", "open": 195.0, "high": 197.5, "low": 194.5, "close": 197.0, "volume": 44327183, "state": 0}, {"date": "2026-04-02", "open": 198.0, "high": 199.0, "low": 191.5, "close": 193.0, "volume": 36299062, "state": 0}];
+const stateColors = {"2": "#eab308", "3": "#ef4444", "0": "#ef4444", "1": "#ef4444", "-1": "#8b949e"};
+const stateLabels = {"2": "BULL_VOLATILE", "3": "BEAR_VOLATILE", "0": "BEAR_VOLATILE", "1": "BEAR_VOLATILE", "-1": "N/A"};
+
+const dates = klineData.map(d => d.date);
+const ohlc = klineData.map(d => [d.open, d.close, d.low, d.high]);
+const volumes = klineData.map(d => d.volume);
+
+const chart = echarts.init(document.getElementById('chart-main'), null, { renderer: 'canvas' });
+
+const option = {
+  backgroundColor: 'transparent',
+  animation: false,
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: { type: 'cross' },
+    backgroundColor: '#161b22ee',
+    borderColor: '#30363d',
+    textStyle: { color: '#e6edf3', fontSize: 12 },
+    formatter: function(params) {
+      const k = params[0];
+      if (!k) return '';
+      const idx = k.dataIndex;
+      const d = klineData[idx];
+      const st = d.state;
+      return '<b>' + d.date + '</b><br/>' +
+        'Open: ' + d.open + '  Close: ' + d.close + '<br/>' +
+        'High: ' + d.high + '  Low: ' + d.low + '<br/>' +
+        'Vol: ' + (d.volume/1e6).toFixed(1) + 'M<br/>' +
+        '<span style="color:' + (stateColors[st] || '#8b949e') + '">State ' + st + ': ' + (stateLabels[st] || 'N/A') + '</span>';
+    }
+  },
+  axisPointer: { link: [{ xAxisIndex: 'all' }] },
+  grid: [
+    { left: '8%', right: '4%', top: '4%', height: '58%' },
+    { left: '8%', right: '4%', top: '72%', height: '16%' }
+  ],
+  xAxis: [
+    { type: 'category', data: dates, gridIndex: 0, axisLine: { lineStyle: { color: '#30363d' } }, axisLabel: { show: false } },
+    { type: 'category', data: dates, gridIndex: 1, axisLine: { lineStyle: { color: '#30363d' } }, axisLabel: { color: '#8b949e', fontSize: 10 } }
+  ],
+  yAxis: [
+    { type: 'value', gridIndex: 0, scale: true, splitLine: { lineStyle: { color: '#21262d' } }, axisLabel: { color: '#8b949e' } },
+    { type: 'value', gridIndex: 1, splitLine: { lineStyle: { color: '#21262d' } }, axisLabel: { color: '#8b949e', formatter: function(v) { return (v/1e6).toFixed(0)+'M'; } } }
+  ],
+  dataZoom: [
+    { type: 'inside', xAxisIndex: [0, 1], start: 0, end: 100 },
+    { type: 'slider', xAxisIndex: [0, 1], bottom: '2%', height: 16, borderColor: '#30363d', fillerColor: '#2563eb33', handleStyle: { color: '#2563eb' }, textStyle: { color: '#8b949e' } }
+  ],
+  series: [
+    {
+      name: 'K-Line',
+      type: 'candlestick',
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      data: ohlc,
+      itemStyle: {
+        color: '#ef4444',
+        color0: '#22c55e',
+        borderColor: '#ef4444',
+        borderColor0: '#22c55e'
+      }
+    },
+    {
+      name: 'Volume',
+      type: 'bar',
+      xAxisIndex: 1,
+      yAxisIndex: 1,
+      data: volumes.map(function(v, i) {
+        return {
+          value: v,
+          itemStyle: { color: klineData[i].close >= klineData[i].open ? '#ef444466' : '#22c55e66' }
+        };
+      })
+    }
+  ]
+};
+
+chart.setOption(option);
+window.addEventListener('resize', function() { chart.resize(); });
+</script>
+</body>
+</html>

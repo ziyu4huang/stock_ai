@@ -1,0 +1,38 @@
+# === Rust / Cargo ===
+target/
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+
+# === Bun / Node ===
+webui/node_modules/
+node_modules/
+
+# === Generated outputs (large, regenerate from data) ===
+models/*.pkl
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === IDE ===
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# === Secrets ===
+.env
+.env.*
+
+# === Temp / scratch ===
+*.log
+*.tmp

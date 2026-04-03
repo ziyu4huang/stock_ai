@@ -1,0 +1,7 @@
+{
+  "name": "stock-ai-webui",
+  "private": true,
+  "dependencies": {
+    "echarts": "^5.5"
+  }
+}
