@@ -2,33 +2,46 @@
 
 ## Overview
 
-Single-crate Rust binary that serves a stock chart dashboard. The web UI is built
-with Bun + TradingView lightweight-charts and embedded into the binary at compile
-time via `include_str!`.
+Cargo workspace + multi-language stock data connector + Bun frontend.
+Single `cargo build` produces one binary that embeds the web UI.
 
-## Crate Structure
+## Workspace Structure
 
 ```
-stock_ai/
-├── Cargo.toml          # single [[bin]] "stock_ai"
-├── build.rs            # bun install → bun build → inline HTML
-├── src/
-│   └── main.rs         # all server logic (axum routes + data fetching + indicators)
-├── webui/
-│   ├── package.json    # lightweight-charts dep
-│   ├── src/
-│   │   └── app.tsx     # frontend SPA
-│   └── bun.lock
-└── scripts/            # dev/utility scripts (not part of build)
+stock_ai/                          ← Cargo workspace root
+├── Cargo.toml                     ← workspace config
+├── crates/
+│   ├── stock-core/                ← types, indicators, SQLite
+│   └── stock-server/              ← Axum binary + build.rs + embedded webui/
+│       └── webui/                 ← Bun + ECharts frontend (moved inside crate)
+│           ├── package.json
+│           └── src/app.tsx
+├── stock_api_cli/                 ← Multi-language stock data connector
+│   ├── python/                    ← Python implementation
+│   │   ├── stock_api_cli/         ← installable package
+│   │   │   ├── providers/         ← yahoo.py, alpha_vantage.py
+│   │   │   └── __main__.py        ← CLI: fetch, quote
+│   │   └── tests/
+│   ├── bun/                       ← Bun/TypeScript implementation
+│   │   ├── src/providers/         ← yahoo.ts, alpha_vantage.ts
+│   │   ├── src/cli.ts             ← CLI: fetch, quote
+│   │   └── tests/
+│   └── rust/                      ← placeholder (future)
+├── quant_analysis/                ← HMM analysis (preserved from old quant_cli)
+│   ├── analysis/                  ← hmm, features, backtest, indicators
+│   ├── report/                    ← html_report.py
+│   └── cli/                       ← analyze, train, backtest, report commands
+├── output/                        ← generated reports & analysis JSON
+└── docs/                          ← planning docs & design docs
 ```
 
 ## Build Pipeline
 
-1. `build.rs` runs **before** `main.rs` compiles
-2. `bun install` in `webui/`
+1. `build.rs` (in stock-server crate) runs before compile
+2. `bun install` in `crates/stock-server/webui/`
 3. `bun build webui/src/app.tsx --format iife --target browser --minify` → `$OUT_DIR/bundle.js`
-4. Inline `bundle.js` into an HTML template string → `$OUT_DIR/webui.html`
-5. `main.rs` uses `include_str!(concat!(env!("OUT_DIR"), "/webui.html"))` to embed at compile time
+4. Inline into HTML template → `$OUT_DIR/webui.html`
+5. `include_str!` embeds at compile time
 
 ## Data Sources (priority order)
 
@@ -37,25 +50,15 @@ stock_ai/
 | `*.TW`, `*.TWO` | TWSE OpenAPI (no key needed) | Yahoo Finance chart API |
 | Everything else | Alpha Vantage (`AV_API_KEY`) | Yahoo Finance chart API |
 
-## API Routes
-
-| Method | Path | Handler | Returns |
-|---|---|---|---|
-| GET | `/` | `serve_webui` | Embedded HTML |
-| GET | `/api/history/{symbol}?days=N` | `get_history` | `{ symbol, bars: [{time,open,high,low,close,volume}] }` |
-| GET | `/api/quote/{symbol}` | `get_quote` | `{ symbol, price, change, change_pct, volume, high, low }` |
-| GET | `/api/indicators/{symbol}` | `get_indicators` | `{ symbol, rsi_14, macd, macd_signal, macd_hist, bb_upper, bb_mid, bb_lower }` |
-
-## Technical Indicators
-
-All computed server-side in `main.rs`:
-- **RSI(14)** — Wilder's smoothing
-- **MACD(12,26,9)** — EMA-based
-- **Bollinger Bands(20, 2σ)** — SMA ± 2 std dev
-
 ## Runtime
 
 - Binds to `0.0.0.0:3003`
 - Graceful shutdown on Ctrl+C
-- Shared state: `Arc<AppState>` holding Alpha Vantage key + reqwest client
-- CORS: permissive (all origins)
+- Shared state: `Arc<AppState>` — av_key, reqwest client, SQLite connection
+- CORS: permissive
+- SQLite: `~/.stock_ai/data.db`
+
+## Key Env Vars
+
+- `AV_API_KEY` — Alpha Vantage API key (required, in zshrc)
+- `DATA_DIR` — defaults to `$HOME/.stock_ai`

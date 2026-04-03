@@ -6,7 +6,7 @@
 - **macOS path:** `~/.bun/bin/bun` (detected via `$HOME` env var)
 - **Windows path:** `C:/Users/ziyu4/.bun/bin/bun.exe` (hardcoded in build.rs)
 
-## build.rs Flow
+## build.rs Flow (in stock-server crate)
 
 ```rust
 // 1. Install deps
@@ -36,3 +36,9 @@ bun build webui/src/app.tsx \
 2. Run `bun install` in `webui/` (or let build.rs do it)
 3. Import in `webui/src/app.tsx`
 4. `cargo build` will re-bundle automatically
+
+## Bun vs npm
+
+- User prefers Bun everywhere — faster install and runtime
+- For Slidev presentations: Bun handles install/scripts, Slidev runs on Node internally
+- Always use `bun install` / `bun run`, never `npm install` / `npm run`

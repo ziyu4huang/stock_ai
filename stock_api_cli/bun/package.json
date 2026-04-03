@@ -1,0 +1,13 @@
+{
+  "name": "stock_api_cli",
+  "version": "0.1.0",
+  "description": "Stock API CLI — multi-source data fetch connector (Bun)",
+  "scripts": {
+    "cli": "bun run src/cli.ts",
+    "test": "bun test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

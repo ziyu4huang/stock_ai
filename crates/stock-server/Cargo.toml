@@ -1,0 +1,20 @@
+[package]
+name = "stock-server"
+edition = "2021"
+
+[[bin]]
+name = "stock_ai"
+path = "src/main.rs"
+
+[dependencies]
+stock-core = { path = "../stock-core" }
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tower-http = { version = "0.5", features = ["cors"] }
+chrono = "0.4"
+rusqlite = { version = "0.31", features = ["bundled"] }
+reqwest = { version = "0.12", features = ["json"] }
+
+[build-dependencies]

@@ -1235,8 +1235,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
-name = "stock_ai"
-version = "0.1.0"
+name = "stock-core"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "stock-server"
+version = "0.0.0"
 dependencies = [
  "axum",
  "chrono",
@@ -1244,6 +1255,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "stock-core",
  "tokio",
  "tower-http 0.5.2",
 ]

@@ -1,101 +1,188 @@
-# Quant CLI — Architecture Plan
+# stock_api_cli — Architecture (replaces quant_cli)
 
-## Overview
+> Multi-vendor, multi-language market data API framework + HMM quant engine.
+> Current name: `quant_cli/` — will be renamed to `stock_api_cli/` in Phase 2.
 
-`quant_cli/` is a Python package providing HMM-based market regime analysis and stock backtesting.
- It integrates with the existing Rust web dashboard in the `stock_ai` project.
+---
 
-## Package Structure
+## Current State: quant_cli/
 
 ```
 quant_cli/
 ├── __init__.py
-├── __main__.py          # CLI entry: python -m quant_cli <command> [args]
+├── __main__.py              # CLI: python -m quant_cli <command>
 ├── sources/
-│   ├── __init__.py      # get_provider() factory
-│   ├── base.py          # DataProvider ABC
-│   ├── yfinance_src.py  # Yahoo Finance (no key needed)
-│   └── alpha_vantage.py  # AV TIME_SERIES_DAILY (daily only, rate-limited 5/min)
-├── features.py          # build_features() + normalize()
-├── hmm_model.py         # fit_hmm(), describe_states(), save/load model
-├── backtest.py          # backtest_daytrade() with Taiwan fee rates
-└── indicators.py        # calc_rsi(), calc_macd(), calc_bollinger()
+│   ├── __init__.py          # get_provider() factory
+│   ├── base.py              # DataProvider ABC
+│   ├── yfinance_src.py      # Yahoo Finance
+│   └── alpha_vantage.py     # Alpha Vantage
+├── features.py              # build_features() + normalize()
+├── hmm_model.py             # fit_hmm(), describe_states(), save/load
+├── backtest.py              # backtest_daytrade() with Taiwan fees
+├── indicators.py            # calc_rsi(), calc_macd(), calc_bollinger()
+└── report.py                # generate_report() → standalone HTML
 ```
+
+## Target State: stock_api_cli/
+
+```
+stock_api_cli/
+├── __init__.py
+├── __main__.py               ← CLI: python -m stock_api_cli <cmd>
+├── types.py                  ← shared: OHLCVBar, Quote, MarketInfo
+│
+├── yahoo_finance/            ← vendor: Yahoo Finance
+│   ├── __init__.py
+│   └── python/
+│       ├── __init__.py
+│       └── client.py         ← YFinanceClient(StockAPIClient)
+│   ├── bun/                  ← (Phase 3)
+│   │   └── client.ts
+│   └── rust/                 ← (Phase 3)
+│       └── src/lib.rs
+│
+├── alpha_vantage/            ← vendor: Alpha Vantage
+│   ├── __init__.py
+│   └── python/
+│       ├── __init__.py
+│       └── client.py         ← AlphaVantageClient(StockAPIClient)
+│   ├── bun/
+│   └── rust/
+│
+├── hmm/                      ← HMM analysis engine
+│   ├── __init__.py
+│   ├── model.py              ← GaussianHMM + state labeling + save/load
+│   ├── features.py           ← log_ret, range_pct, vol_change + normalize
+│   └── backtest.py           ← day-trade backtest, Taiwan fee rates
+│
+├── indicators.py             ← calc_rsi(), calc_macd(), calc_bollinger()
+├── report.py                 ← generate_report() → standalone ECharts HTML
+└── bench.py                  ← cross-vendor benchmark runner
+```
+
+---
+
+## Provider Interface
+
+```python
+# stock_api_cli/types.py
+class OHLCVBar:
+    date: str        # "2026-04-03"
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+
+class Quote:
+    symbol: str
+    price: float
+    change: float
+    change_pct: float
+    volume: int
+    high: float
+    low: float
+```
+
+```python
+# Each vendor/python/client.py implements:
+class StockAPIClient(ABC):
+    @abstractmethod
+    def fetch_daily(self, symbol: str, period: str = "1y") -> List[OHLCVBar]: ...
+
+    @abstractmethod
+    def fetch_quote(self, symbol: str) -> Optional[Quote]: ...
+
+    @property
+    @abstractmethod
+    def vendor_name(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def rate_limit(self) -> str: ...
+```
+
+---
 
 ## CLI Commands
 
 ```bash
-# Full analysis pipeline
-python3 -m quant_cli analyze SYMBOL [--source yfinance|av] [--period 1y] [--states 4] [-o output.json]
+# Analysis
+python3 -m stock_api_cli analyze SYMBOL [--source yfinance|av] [--period 1y] [-o result.json]
+python3 -m stock_api_cli report SYMBOL [--period 1y] [-o report.html]
 
-# Train and save model
-python3 -m quant_cli train SYMBOL --save model.pkl [--states 4]
+# HMM
+python3 -m stock_api_cli train SYMBOL --save model.pkl
+python3 -m stock_api_cli backtest SYMBOL --model model.pkl
 
-# Load model and backtest
-python3 -m quant_cli backtest SYMBOL --model model.pkl
-
-# Backward compatible wrapper
-python3 analyze.py SYMBOL
- # delegates to: quant_cli analyze --source yfinance
+# NEW: Benchmark
+python3 -m stock_api_cli bench SYMBOL [--vendors yfinance,alpha_vantage]
 ```
 
-## Data Sources
+---
 
-| Source | Class | Key Required | Rate Limit | Notes |
-|--------|-------|-------------|-----------|-------|
-| yfinance | YFinanceProvider | No | None | Default, no key needed |
-| av | AlphaVantageProvider | AV_API_KEY | 5/min, 500/day | TIME_SERIES_DAILY only (free tier). TIME_SERIES_DAILY_ADJUSTED is premium. |
+## Vendor × Language Matrix
 
-## Feature Engineering
+| Vendor \ Language | Python | Bun/TS | Rust |
+|-------------------|--------|--------|------|
+| Yahoo Finance | ✅ current | ☐ Phase 3 | ☐ Phase 3 |
+| Alpha Vantage | ✅ current | ☐ Phase 3 | ☐ Phase 3 |
+| FMP | ☐ future | ☐ | ☐ |
+| TWSE OpenAPI | ☐ | ☐ | ✅ in Rust |
 
- Input features for HMM:
+---
+
+## Benchmark Output
+
+```json
+{
+  "symbol": "2330.TW",
+  "date": "2026-04-03",
+  "results": {
+    "yfinance": {
+      "bars": 242, "latency_ms": 320, "latest": "2026-04-02",
+      "rate_limit": "none", "cost": "free"
+    },
+    "alpha_vantage": {
+      "bars": 100, "latency_ms": 580, "latest": "2026-04-02",
+      "rate_limit": "5/min", "cost": "free tier"
+    }
+  }
+}
+```
+
+---
+
+## Feature Engineering (unchanged)
+
+Critical HMM inputs:
 
 1. **Log Returns**: `log(close_t / close_t-1)` — eliminates price level non-stationarity
- This is the core input, feature and the main one.
- Make sure you understand why.
-  This is the only one that is an absolute requirement.
- `hmm_model.py` supports from `features.py` module.
- The model relies on `features.py` for feature computation. Features are: log_ret, range_pct, vol_change.
-  The `normalize()` function applies Z-score standardization.
+2. **Range %**: `(high - low) / close` — intraday volatility
+3. **Volume Change**: `log(volume / volume.shift(1))` — participation shifts
 
-  This is critical because HMM assumes Gaussian emissions. Raw features with vastly different scales (e.g., volume in millions vs returns in hundredths) would dominate the model. Z-score ensures all features contribute equally.
+Z-score normalized before HMM fitting (Gaussian emission assumption).
 
- This pattern should be reused for any future features.
+## HMM Config
 
-  This is the most important thing to get right.  Features are: log_ret, range_pct, vol_change.  The `normalize()` function applies Z-score standardization.  This is critical because HMM assumes Gaussian emissions. Raw features with vastly different scales (e.g., volume in millions vs returns in hundredths) would dominate the model. Z-score ensures all features contribute equally.  This pattern should be reused for any future features.
-
-  This is the most important thing to get right.  Features are: log_ret, range_pct, vol_change.  The `normalize()` function applies Z-score standardization.  This is critical because HMM assumes Gaussian emissions. Raw features with vastly different scales (e.g., volume in millions vs returns in hundredths) would dominate the model. Z-score ensures all features contribute equally.  This pattern should be reused for any future features.  This is the most important thing to get right.  Features are: log_ret, range_pct, vol_change.  The `normalize()` function applies Z-score standardization.  This is critical because HMM assumes Gaussian emissions. Raw features with vastly different scales (e.g., volume in millions vs returns in hundredths) would dominate the model. Z-score ensures all features contribute equally.  This pattern should be reused for any future features.
-
-  This is the most important thing to get right.  Features are: log_ret, range_pct, vol_change.  The `normalize()` function applies Z-score standardization.  This is critical because HMM assumes Gaussian emissions. Raw features with vastly different scales (e.g., volume in millions vs returns in hundredths) would dominate the model. Z-score ensures all features contribute equally.  This pattern should be reused for any future features. This is the most important thing to get right. Features are: log_ret, range_pct, vol_change. The `normalize()` function applies Z-score standardization. This is critical because HMM assumes Gaussian emissions. Raw features with vastly different scales (e.g., volume in millions vs returns in hundredths) would dominate the model. Z-score ensures all features contribute equally. This pattern should be reused for any future features.
-2. **Range %**: `(high - low) / close` — intraday volatility measure
-3. **Volume Change**: `log(volume / volume.shift(1))` — captures participation shifts
-
-All features are Z-score normalized before HMM fitting.
-
-## HMM Configuration
-- Model: `GaussianHMM` from hmmlearn
+- `GaussianHMM` from hmmlearn
 - Default: 4 states, full covariance, 200 iterations
-- State labels auto-assigned by inspecting emission means (avg return + avg range)
- This is a hard requirement to get right.  This is important to understand.  This is a very important concept. Make sure you understand why.  This is critical because HMM assumes Gaussian emissions.  Raw features with vastly different scales (e.g., volume in millions vs returns in hundredths) would dominate the model. Z-score ensures all features contribute equally. This pattern should be reused for any future features.
-   - BULL_QUIET, BULL_VOLATILE, BEAR_QUIET, BEAR_VOLATILE, CHOPPY
+- Labels: BULL_QUIET, BULL_VOLATILE, BEAR_QUIET, BEAR_VOLATILE, CHOPPY
 
-## Taiwan Day-Trade Costs (hardcoded in backtest.py)
-- Fee rate: 0.1425% (buy + sell)
-- Day-trade tax: 0.15% (half of normal 0.3%)
-- Total round-trip cost: ~0.435%
+## Taiwan Day-Trade Costs
 
-## Python Compatibility
-- System Python: 3.9 on macOS
-- Use `from typing import Optional, Tuple, List` (NOT `str | None` or `list[X]`)
-- Always use `python3` command (no `python` alias on macOS)
+- Fee: 0.1425% × 2 (buy + sell)
+- Tax: 0.15% (day-trade rate)
+- Total round-trip: ~0.435%
 
-## HTML Report Pattern
-- Single-file HTML with data embedded as inline JSON
-- Uses ECharts CDN for chart rendering
-- Dark theme matching project color scheme
-- No external data fetching at runtime — fully offline
+## Python Compat
 
-## Known Issues (see hmm-reflection.md)
-- Model convergence warnings (non-critical, but common)
-- Look-ahead bias in backtest (trains+tests on same data)
-- State collapse (97.5% into one state with 242 samples / 4 states)
+- System Python 3.9 on macOS
+- `from typing import Optional, Tuple, List` (not `str | None`)
+- Always `python3`
+
+## Known Issues
+
+- Model convergence warnings (non-critical)
+- Look-ahead bias (trains+tests on same data)
+- State collapse (97.5% into one state with limited samples)

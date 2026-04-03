@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "yfinance": {
+      "command": "/Users/huangziyu/.local/bin/uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Alex2Yang97/yahoo-finance-mcp",
+        "yahoo-finance-mcp"
+      ]
+    }
+  }
+}
