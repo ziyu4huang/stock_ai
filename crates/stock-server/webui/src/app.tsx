@@ -98,8 +98,8 @@ async function loadStock(symbol: string, days: number) {
   overlay.style.display = "flex";
   chart.clear();
 
-  // Use shorter intervals for short periods to get more bars
-  const interval = days <= 30 ? "15m" : "1d";
+  // Yahoo interval constraints: 1m≤7d, 5m/15m/30m≤60d, 60m≤730d, 1d unlimited
+  const interval = days <= 30 ? "15m" : days <= 90 ? "60m" : "1d";
 
   try {
     const resp = await fetch(`/api/history/${encodeURIComponent(symbol)}?days=${days}&interval=${interval}`);

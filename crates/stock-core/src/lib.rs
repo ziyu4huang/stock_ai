@@ -407,7 +407,7 @@ pub async fn cached_fetch(st: &AppState, symbol: &str, days: u64, interval: &str
     if interval == "1d" {
         let now = chrono::Utc::now().timestamp();
         let from = now - (days as i64) * 86400;
-        let stale_after = now - 48 * 3600; // refetch if latest bar is older than 48h
+        let stale_after = now - 4 * 3600; // refetch if latest bar is older than 4h
         {
             let db = st.db.lock().unwrap();
             let cached = db_query(&db, symbol, from, now);
