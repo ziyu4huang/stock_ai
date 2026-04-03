@@ -82,7 +82,7 @@ def run_signals(args):
         now = datetime.now().isoformat()
         today = datetime.now().strftime("%Y-%m-%d")
         conn.execute(
-            """INSERT OR REPLACE INTO signals
+            """INSERT OR REPLACE INTO signal_log
                (symbol, date, signal_type, regime_state, confidence, details, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (symbol, today, signal_type, current_state, confidence, details, now),

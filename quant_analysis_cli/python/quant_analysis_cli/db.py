@@ -3,9 +3,10 @@
 Shared database: ~/.stock_ai/data.db (same as Rust server).
 Tables:
   - kline_daily   (populated by stock_api_cli fetch --store)
+  - kline_1min    (populated by quant_analysis_cli fetch-1m --store)
   - hmm_models    (populated by quant_analysis_cli train)
   - analysis_results (populated by quant_analysis_cli analyze --save)
-  - signals       (populated by quant_analysis_cli signals)
+  - signal_log    (populated by quant_analysis_cli signals)
 """
 
 import io
@@ -21,6 +22,18 @@ import pandas as pd
 _DEFAULT_DB = os.path.join(os.environ.get("HOME", "."), ".stock_ai", "data.db")
 
 _SCHEMA = """
+CREATE TABLE IF NOT EXISTS kline_1min (
+    symbol TEXT NOT NULL,
+    ts     INTEGER NOT NULL,
+    open   REAL NOT NULL,
+    high   REAL NOT NULL,
+    low    REAL NOT NULL,
+    close  REAL NOT NULL,
+    volume INTEGER NOT NULL,
+    PRIMARY KEY (symbol, ts)
+);
+CREATE INDEX IF NOT EXISTS idx_k1m ON kline_1min(symbol, ts DESC);
+
 CREATE TABLE IF NOT EXISTS hmm_models (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     symbol TEXT NOT NULL,
@@ -57,18 +70,18 @@ CREATE TABLE IF NOT EXISTS analysis_results (
 );
 CREATE INDEX IF NOT EXISTS idx_ar_symbol ON analysis_results(symbol);
 
-CREATE TABLE IF NOT EXISTS signals (
+CREATE TABLE IF NOT EXISTS signal_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     symbol TEXT NOT NULL,
     date TEXT NOT NULL,
     signal_type TEXT NOT NULL,
     regime_state INTEGER,
-    confidence REAL,
+    confidence REAL NOT NULL DEFAULT 0,
     details TEXT,
     created_at TEXT NOT NULL,
     UNIQUE(symbol, date, signal_type)
 );
-CREATE INDEX IF NOT EXISTS idx_sig_symbol_date ON signals(symbol, date);
+CREATE INDEX IF NOT EXISTS idx_sig_sym ON signal_log(symbol, date DESC);
 """
 
 
@@ -219,3 +232,61 @@ def read_latest_analysis(conn: sqlite3.Connection, symbol: str) -> Optional[dict
     d["state_info"] = json.loads(d["state_info"])
     d["backtest_result"] = json.loads(d.get("backtest_result") or "{}")
     return d
+
+
+# ── kline_1min ────────────────────────────────────────────────────────────
+
+def upsert_kline_1min(conn: sqlite3.Connection, symbol: str, bars: list) -> int:
+    """Insert 1-minute bars, silently skip duplicates (INSERT OR IGNORE).
+
+    Args:
+        bars: list of dicts with keys ts, open, high, low, close, volume
+              ts is a Unix timestamp (UTC integer seconds).
+
+    Returns:
+        Number of newly inserted rows.
+    """
+    before = conn.execute("SELECT COUNT(*) FROM kline_1min WHERE symbol=?", (symbol,)).fetchone()[0]
+    conn.executemany(
+        "INSERT OR IGNORE INTO kline_1min (symbol, ts, open, high, low, close, volume) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [(symbol, b["ts"], b["open"], b["high"], b["low"], b["close"], b["volume"]) for b in bars],
+    )
+    conn.commit()
+    after = conn.execute("SELECT COUNT(*) FROM kline_1min WHERE symbol=?", (symbol,)).fetchone()[0]
+    return after - before
+
+
+def read_kline_1min(conn: sqlite3.Connection, symbol: str,
+                    from_ts: Optional[int] = None,
+                    to_ts: Optional[int] = None) -> pd.DataFrame:
+    """Read 1-min bars from kline_1min into a UTC-indexed DataFrame.
+
+    Raises RuntimeError if no data found.
+    """
+    sql = "SELECT ts, open, high, low, close, volume FROM kline_1min WHERE symbol=?"
+    params: list = [symbol]
+    if from_ts is not None:
+        sql += " AND ts >= ?"
+        params.append(from_ts)
+    if to_ts is not None:
+        sql += " AND ts <= ?"
+        params.append(to_ts)
+    sql += " ORDER BY ts"
+
+    rows = conn.execute(sql, params).fetchall()
+    if not rows:
+        raise RuntimeError(
+            f"No 1-min data for {symbol}. "
+            f"Run: python3 -m quant_analysis_cli fetch-1m {symbol} --store"
+        )
+    df = pd.DataFrame(rows, columns=["ts", "open", "high", "low", "close", "volume"])
+    df.index = pd.to_datetime(df["ts"], unit="s", utc=True)
+    df.index.name = "datetime"
+    return df[["open", "high", "low", "close", "volume"]]
+
+
+def count_kline_1min(conn: sqlite3.Connection, symbol: str) -> int:
+    """Return total number of stored 1-min bars for a symbol."""
+    row = conn.execute("SELECT COUNT(*) FROM kline_1min WHERE symbol=?", (symbol,)).fetchone()
+    return row[0] if row else 0

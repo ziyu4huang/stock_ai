@@ -2,7 +2,7 @@
 
 import os
 
-from ..db import get_connection, read_ohlcv, read_ohlcv_from_json
+from ..db import get_connection, read_ohlcv, read_ohlcv_from_json, load_latest_model
 from ..analysis.features import build_features
 from ..analysis.hmm import fit_hmm, describe_states
 from ..analysis.backtest import backtest_daytrade
@@ -18,6 +18,7 @@ def run_report(args):
     n_states = args.states
 
     # 1. Read data
+    conn = None
     if args.input:
         print(f"[1/5] Reading {symbol} data from file {args.input}...")
         df_raw = read_ohlcv_from_json(args.input)
@@ -31,9 +32,19 @@ def run_report(args):
     print(f"[2/5] Building features...")
     features, df = build_features(df_raw)
 
-    # 3. HMM
-    print(f"[3/5] Fitting GaussianHMM (n_states={n_states})...")
-    model = fit_hmm(features, n_states=n_states)
+    # 3. HMM — try loading saved model first, fall back to fitting new one
+    model = None
+    if conn is not None:
+        try:
+            print(f"[3/5] Loading saved model for {symbol}...")
+            _, model = load_latest_model(conn, symbol)
+        except RuntimeError:
+            model = None
+
+    if model is None:
+        print(f"[3/5] Fitting GaussianHMM (n_states={n_states})...")
+        model = fit_hmm(features, n_states=n_states)
+
     states = model.predict(features)
     state_info = describe_states(model, df, states)
     bic = model.bic(features)

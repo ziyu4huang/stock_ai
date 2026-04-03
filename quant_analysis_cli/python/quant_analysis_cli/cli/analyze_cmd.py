@@ -10,10 +10,7 @@ from ..analysis.hmm import fit_hmm, describe_states
 from ..analysis.backtest import backtest_daytrade
 from ..analysis.indicators import calc_rsi, calc_macd, calc_bollinger
 
-OUTPUT_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))))), "output"
-)
+OUTPUT_DIR = os.path.abspath(os.path.join(os.getcwd(), "output"))
 
 TAIWAN_TICKERS = {
     "2330.TW": "TSMC 台積電",

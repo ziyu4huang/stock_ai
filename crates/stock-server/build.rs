@@ -89,26 +89,21 @@ fn main() {
     }}
     #bt-btn:hover {{ background:#3a2818; }}
     #rp-btn {{
-      margin-left:auto; background:#1a2a20; color:#3dbb6a; border:1px solid #1a4a28;
+      background:#1a2a20; color:#3dbb6a; border:1px solid #1a4a28;
       padding:4px 10px; border-radius:5px; font-size:11px; cursor:pointer;
     }}
     #rp-btn:hover {{ background:#2a3a28; }}
-
-    /* stock tabs */
-    #stock-tabs {{
-      position:fixed; top:44px; left:220px; right:280px; height:30px; z-index:20;
-      background:#0f1014; border-bottom:1px solid #181b22;
-      display:flex; align-items:center; gap:4px; padding:0 12px; overflow-x:auto;
+    .ind-btn {{
+      background:#1a1d25; color:#7788aa; border:1px solid #272c38;
+      padding:4px 9px; border-radius:5px; font-size:11px; cursor:pointer;
     }}
-    .tab {{
-      background:#191c24; border:1px solid #252933; border-radius:5px;
-      padding:3px 10px; font-size:12px; color:#99aabb; cursor:pointer;
-      display:flex; align-items:center; gap:6px; white-space:nowrap;
+    .ind-btn:hover {{ background:#222733; color:#dde; }}
+    .ind-btn.active {{ background:#1a2a4a; color:#7ab0ff; border-color:#2a4080; }}
+    #tb-right {{ margin-left:auto; display:flex; gap:6px; align-items:center; }}
+    #wl-toggle {{
+      display:none; background:#1a1d25; color:#99aabb; border:1px solid #272c38;
+      padding:4px 8px; border-radius:5px; font-size:13px; cursor:pointer;
     }}
-    .tab:hover {{ background:#1e2230; color:#dde; }}
-    .tab.active {{ background:#1a2a50; color:#6a9eff; border-color:#2a4080; }}
-    .tab-close {{ font-size:11px; color:#556; cursor:pointer; padding:0 2px; }}
-    .tab-close:hover {{ color:#e84848; }}
 
     /* watchlist sidebar */
     #watchlist {{
@@ -154,7 +149,7 @@ fn main() {
 
     /* main layout */
     #main {{
-      position:fixed; top:74px; left:220px; right:0; bottom:0;
+      position:fixed; top:44px; left:220px; right:0; bottom:0;
       display:flex; overflow:hidden;
     }}
 
@@ -191,7 +186,7 @@ fn main() {
 
     /* backtest panel */
     #backtest-panel {{
-      position:fixed; top:74px; right:280px; width:340px; max-height:calc(100vh - 84px);
+      position:fixed; top:44px; right:280px; width:340px; max-height:calc(100vh - 54px);
       background:#13151a; border:1px solid #21242e; border-radius:8px;
       box-shadow:0 6px 24px rgba(0,0,0,.5); z-index:40; display:none; flex-direction:column;
       overflow:hidden;
@@ -203,22 +198,82 @@ fn main() {
     }}
     #bt-close {{ background:none; border:none; color:#556; cursor:pointer; font-size:16px; }}
     #bt-content {{ padding:12px; overflow-y:auto; }}
+
+    /* live 1m bar */
+    #live-bar {{
+      display:none; position:fixed; top:44px; left:220px; right:0; height:28px; z-index:19;
+      background:#0d1117; border-bottom:1px solid #1e2028;
+      align-items:center; gap:10px; padding:0 12px;
+    }}
+    #live-regime {{
+      font-size:11px; font-weight:700; padding:2px 10px; border-radius:12px;
+      border:1px solid #334; color:#6b7280; background:#6b728018;
+      white-space:nowrap;
+    }}
+    #live-status {{ font-size:10px; color:#445; }}
+    #live-states {{ font-size:10px; color:#445; flex:1; }}
+    #live-refresh {{
+      background:#1a2a20; color:#3dbb6a; border:1px solid #1a4a28;
+      padding:2px 8px; border-radius:4px; font-size:10px; cursor:pointer;
+    }}
+    /* push main content down when live bar is visible — handled by JS setLiveLayout */
+    #live1m-btn {{
+      background:#1a1d25; color:#7788aa; border:1px solid #272c38;
+      padding:4px 9px; border-radius:5px; font-size:11px; cursor:pointer;
+    }}
+    #live1m-btn:hover {{ background:#222733; color:#dde; }}
+    #live1m-btn.active {{ background:#0d2018; color:#22c55e; border-color:#1a4a28; }}
+
+    /* ── mobile (≤768px) ─────────────────────────────────────── */
+    @media (max-width: 768px) {{
+      #wl-toggle {{ display:block; }}
+      #watchlist {{
+        transform: translateX(-100%); transition: transform .2s;
+        top:44px; z-index:50; box-shadow:4px 0 16px rgba(0,0,0,.6);
+      }}
+      #watchlist.open {{ transform: translateX(0); }}
+      #main {{ left:0 !important; flex-direction:column; top:44px; }}
+      #chart-wrap {{ flex:1 1 60%; min-height:0; }}
+      #stats {{
+        width:100% !important; border-left:none; border-top:1px solid #1e2028;
+        flex:0 0 auto; max-height:40vh; overflow-y:auto;
+      }}
+      #backtest-panel {{ right:0; left:0; width:auto; }}
+      #tb {{ flex-wrap:wrap; height:auto; padding:6px 8px; gap:4px; }}
+      #tb-right {{ flex-wrap:wrap; }}
+      .tsep {{ display:none; }}
+    }}
   </style>
 </head>
 <body>
 
 <div id="tb">
+  <button id="wl-toggle" onclick="toggleWatchlist()">☰</button>
   <span class="brand">Stock AI</span>
   <div class="tsep"></div>
   <input id="search" placeholder="2330.TW / NVDA" value="2330.TW">
   <button class="go-btn" onclick="loadStock()">Go</button>
   <div class="tsep"></div>
-  <button class="pbtn active" onclick="setPeriod(90,this)">3M</button>
-  <button class="pbtn" onclick="setPeriod(30,this)">1M</button>
-  <button class="pbtn" onclick="setPeriod(180,this)">6M</button>
-  <button class="pbtn" onclick="setPeriod(365,this)">1Y</button>
-  <button id="bt-btn" onclick="runBacktest()">HMM Backtest</button>
-  <button id="rp-btn" onclick="openReport()">HTML Report</button>
+  <button class="pbtn active period-btn" onclick="setPeriod(90,this)">3M</button>
+  <button class="pbtn period-btn" onclick="setPeriod(30,this)">1M</button>
+  <button class="pbtn period-btn" onclick="setPeriod(180,this)">6M</button>
+  <button class="pbtn period-btn" onclick="setPeriod(365,this)">1Y</button>
+  <div class="tsep"></div>
+  <button class="ind-btn" onclick="toggleIndicator('rsi',this)">RSI</button>
+  <button class="ind-btn" onclick="toggleIndicator('macd',this)">MACD</button>
+  <button class="ind-btn" onclick="toggleIndicator('boll',this)">BB</button>
+  <div id="tb-right">
+    <button id="live1m-btn" onclick="toggleLive1m(this)">1m Live</button>
+    <button id="bt-btn" onclick="runBacktest()">HMM Backtest</button>
+    <button id="rp-btn" onclick="openReport()">HTML Report</button>
+  </div>
+</div>
+
+<div id="live-bar">
+  <span id="live-regime">NOISE 雜訊震盪</span>
+  <span id="live-states"></span>
+  <span id="live-status">--</span>
+  <button id="live-refresh" onclick="(window.refresh1mNow||function(){{}})()">⟳</button>
 </div>
 
 <div id="watchlist">
@@ -233,8 +288,6 @@ fn main() {
     <div id="scan-results"></div>
   </div>
 </div>
-
-<div id="stock-tabs"></div>
 
 <div id="main">
   <div id="chart-wrap">

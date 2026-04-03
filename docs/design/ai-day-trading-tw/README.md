@@ -19,6 +19,7 @@
 | 05 | [05-risks-and-principles.md](05-risks-and-principles.md) | 風險管理、法規、常見陷阱 |
 | 06 | [06-system-architecture.md](06-system-architecture.md) | 系統架構設計、專案結構、實作階段 |
 | 07 | [07-tooling-guide-shioaji-lgmb-vectorbt.md](07-tooling-guide-shioaji-lgmb-vectorbt.md) | **Shioaji + LightGBM + vectorbt 實作指南** |
+| 08 | [08-large-trade-tracker.md](08-large-trade-tracker.md) | **大單追蹤偵測器：HMM 整合與點火偵測** |
 
 ## 快速參考
 

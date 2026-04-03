@@ -83,6 +83,7 @@ _(empty - add notes here as patterns emerge)_
 - [04-data-and-infrastructure](docs/design/ai-day-trading-tw/04-data-and-infrastructure.md) - Data sources, broker APIs (Shioaji), backtesting tools
 - [05-risks-and-principles](docs/design/ai-day-trading-tw/05-risks-and-principles.md) - Risk management, regulations, pitfalls, daily checklist
 - [06-system-architecture](docs/design/ai-day-trading-tw/06-system-architecture.md) - System design, component architecture, project structure, implementation phases
+- [08-large-trade-tracker](docs/design/ai-day-trading-tw/08-large-trade-tracker.md) - 大單追蹤偵測器, HMM 意圖分類, 點火序列偵測, Tick Streamer
 
 ### presentations/
 - [phase1-goal-set](docs/presentation/phase1-goal-set/slides.md) - Slidev deck: architecture, goals, roadmap (14 slides)

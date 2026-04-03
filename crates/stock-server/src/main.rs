@@ -1,6 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
-    response::Html,
+    http::StatusCode,
+    response::{Html, IntoResponse, Response},
     routing::{get, post, delete},
     Json, Router,
 };
@@ -10,6 +11,21 @@ use tokio::signal;
 use tower_http::cors::CorsLayer;
 
 use stock_core::*;
+
+// ── error type ────────────────────────────────────────────────────────────
+
+struct AppError(StatusCode, String);
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        (self.0, Json(serde_json::json!({"error": self.1}))).into_response()
+    }
+}
+
+impl AppError {
+    fn not_found(msg: impl Into<String>) -> Self { Self(StatusCode::NOT_FOUND, msg.into()) }
+    fn internal(msg: impl Into<String>) -> Self { Self(StatusCode::INTERNAL_SERVER_ERROR, msg.into()) }
+}
 
 const WEBUI_HTML: &str = include_str!(concat!(env!("OUT_DIR"), "/webui.html"));
 
@@ -47,39 +63,42 @@ async fn get_history(
 async fn get_quote(
     Path(symbol): Path<String>,
     State(st): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, AppError> {
     let bars = match fetch_yahoo(&st.client, &symbol, 5).await {
         Ok(b) if !b.is_empty() => b,
         _ => fetch_av(&st.client, &symbol, &st.av_key).await.unwrap_or_default(),
     };
     if bars.len() < 2 {
-        return Json(serde_json::json!({"error": "no data"}));
+        return Err(AppError::not_found(format!("no quote data for {symbol}")));
     }
     let prev = &bars[bars.len() - 2];
     let last = &bars[bars.len() - 1];
     let chg = last.close - prev.close;
     let pct = if prev.close > 0.0 { chg / prev.close * 100.0 } else { 0.0 };
-    Json(serde_json::json!({
+    Ok(Json(serde_json::json!({
         "symbol": symbol, "price": last.close, "change": chg,
         "change_pct": pct, "volume": last.volume,
         "high": last.high, "low": last.low
-    }))
+    })))
 }
 
 async fn get_indicators(
     Path(symbol): Path<String>,
     State(st): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, AppError> {
     let bars = cached_fetch(&st, &symbol, 180).await;
+    if bars.is_empty() {
+        return Err(AppError::not_found(format!("no data for {symbol}")));
+    }
     let closes: Vec<f64> = bars.iter().map(|b| b.close).collect();
     let rsi = calc_rsi(&closes, 14);
     let (macd, sig, hist) = calc_macd(&closes);
     let (bbu, bbm, bbl) = calc_bb(&closes, 20, 2.0);
-    Json(serde_json::json!({
+    Ok(Json(serde_json::json!({
         "symbol": symbol, "rsi_14": rsi,
         "macd": macd, "macd_signal": sig, "macd_hist": hist,
         "bb_upper": bbu, "bb_mid": bbm, "bb_lower": bbl
-    }))
+    })))
 }
 
 // ── quant_analysis_cli integration ────────────────────────────────────────
@@ -87,36 +106,27 @@ async fn get_indicators(
 async fn get_backtest(
     Path(symbol): Path<String>,
     State(st): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, AppError> {
     let out = python_cmd(
         "quant_analysis_cli",
         &["analyze", &symbol, "--save"],
         &st.project_dir,
-    ).output().await;
+    ).output().await
+        .map_err(|e| AppError::internal(format!("spawn: {e}")))?;
 
-    match out {
-        Ok(o) if o.status.success() => {
-            let json_path = format!("{}/output/analysis_result.json", st.project_dir);
-            match tokio::fs::read_to_string(&json_path).await {
-                Ok(s) => {
-                    let v: serde_json::Value =
-                        serde_json::from_str(&s).unwrap_or_else(|e| serde_json::json!({"error": format!("parse:{e}")}));
-                    if v.is_array() {
-                        v.as_array().and_then(|a| a.first().cloned()).unwrap_or(v)
-                    } else {
-                        v
-                    }
-                }
-                Err(e) => serde_json::json!({"error": format!("read:{e}")}),
-            }
-        }
-        Ok(o) => {
-            let err = String::from_utf8_lossy(&o.stderr);
-            let out_str = String::from_utf8_lossy(&o.stdout);
-            serde_json::json!({"error": format!("{err}{out_str}")})
-        }
-        Err(e) => serde_json::json!({"error": format!("spawn:{e}")}),
-    }.into()
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr);
+        return Err(AppError::internal(format!("{err}")));
+    }
+    let json_path = format!("{}/output/analysis_result.json", st.project_dir);
+    let s = tokio::fs::read_to_string(&json_path).await
+        .map_err(|e| AppError::internal(format!("read: {e}")))?;
+    let v: serde_json::Value = serde_json::from_str(&s)
+        .map_err(|e| AppError::internal(format!("parse: {e}")))?;
+    let result = if v.is_array() {
+        v.as_array().and_then(|a| a.first().cloned()).unwrap_or(v)
+    } else { v };
+    Ok(Json(result))
 }
 
 async fn get_kline(
@@ -148,27 +158,25 @@ async fn get_kline(
     Json(serde_json::Value::Array(rows))
 }
 
-async fn get_report(Path(symbol): Path<String>, State(st): State<Arc<AppState>>) -> Html<String> {
+async fn get_report(
+    Path(symbol): Path<String>,
+    State(st): State<Arc<AppState>>,
+) -> Result<Html<String>, AppError> {
     let out = python_cmd(
         "quant_analysis_cli",
         &["report", &symbol],
         &st.project_dir,
-    ).output().await;
+    ).output().await
+        .map_err(|e| AppError::internal(format!("spawn: {e}")))?;
 
-    match out {
-        Ok(o) if o.status.success() => {
-            let filename = format!("{}/output/report_{}.html", st.project_dir, symbol.replace('.', "_"));
-            match tokio::fs::read_to_string(&filename).await {
-                Ok(html) => Html(html),
-                Err(e) => Html(format!("<html><body><h2>Error reading report</h2><pre>{e}</pre></body></html>")),
-            }
-        }
-        Ok(o) => {
-            let err = String::from_utf8_lossy(&o.stderr);
-            Html(format!("<html><body><h2>Report generation failed</h2><pre>{err}</pre></body></html>"))
-        }
-        Err(e) => Html(format!("<html><body><h2>Spawn failed</h2><pre>{e}</pre></body></html>")),
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr);
+        return Err(AppError::internal(format!("{err}")));
     }
+    let filename = format!("{}/output/report_{}.html", st.project_dir, symbol.replace('.', "_"));
+    let html = tokio::fs::read_to_string(&filename).await
+        .map_err(|e| AppError::internal(format!("read report: {e}")))?;
+    Ok(Html(html))
 }
 
 // ── Watchlist API ─────────────────────────────────────────────────────────
@@ -248,6 +256,106 @@ async fn api_signals_get(
     let db = st.db.lock().unwrap();
     let signals = signal_get_latest(&db, &symbol, 20);
     Json(serde_json::json!({"signals": signals}))
+}
+
+// ── 1-minute kline ───────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct HoursQ {
+    hours: Option<u64>,
+}
+
+/// GET /api/kline1m/:symbol?hours=N  — query stored 1-min bars (default 168h = 7 days)
+async fn api_kline1m_get(
+    Path(symbol): Path<String>,
+    Query(q): Query<HoursQ>,
+    State(st): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let hours = q.hours.unwrap_or(168);
+    let now = chrono::Utc::now().timestamp();
+    let from = now - (hours as i64) * 3600;
+    let bars = {
+        let db = st.db.lock().unwrap();
+        db_query_1min(&db, &symbol, from, now)
+    };
+    if bars.is_empty() {
+        return Err(AppError::not_found(format!(
+            "No 1-min data for {symbol}. POST /api/fetch1m/{symbol} to fetch."
+        )));
+    }
+    let rows: Vec<serde_json::Value> = bars.iter().map(|b| {
+        let dt = chrono::DateTime::from_timestamp(b.time, 0)
+            .map(|t| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+            .unwrap_or_default();
+        serde_json::json!({
+            "ts": b.time, "dt": dt,
+            "open": b.open, "high": b.high, "low": b.low,
+            "close": b.close, "volume": b.volume,
+        })
+    }).collect();
+    let total = { let db = st.db.lock().unwrap(); count_1min(&db, &symbol) };
+    Ok(Json(serde_json::json!({
+        "symbol": symbol, "interval": "1m",
+        "hours": hours, "bars": rows.len(), "total_stored": total,
+        "data": rows,
+    })))
+}
+
+/// GET /api/hmm1m/:symbol  — run 1-min HMM regime analysis (doc-08 taxonomy)
+async fn api_hmm1m(
+    Path(symbol): Path<String>,
+    State(st): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let out = python_cmd(
+        "quant_analysis_cli",
+        &["analyze1m", &symbol],
+        &st.project_dir,
+    ).output().await
+        .map_err(|e| AppError::internal(format!("spawn: {e}")))?;
+
+    if !out.status.success() {
+        // Python may output JSON error to stdout even on non-zero exit
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(stdout.trim()) {
+            if let Some(msg) = v.get("error").and_then(|e| e.as_str()).filter(|s| !s.is_empty()) {
+                return Err(AppError::internal(msg.to_string()));
+            }
+        }
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        return Err(AppError::internal(if stderr.is_empty() { format!("analyze1m {symbol} failed") } else { stderr.to_string() }));
+    }
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(stdout.trim())
+        .map_err(|e| AppError::internal(format!("parse: {e}")))?;
+    // Surface Python-level errors as 500
+    if v.get("error").is_some() {
+        let msg = v["error"].as_str().filter(|s| !s.is_empty()).unwrap_or("analyze1m failed");
+        return Err(AppError::internal(msg.to_string()));
+    }
+    Ok(Json(v))
+}
+
+/// POST /api/fetch1m/:symbol  — spawn Python to fetch & store 1-min bars
+async fn api_fetch1m(
+    Path(symbol): Path<String>,
+    State(st): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let out = python_cmd(
+        "quant_analysis_cli",
+        &["fetch-1m", &symbol, "--store"],
+        &st.project_dir,
+    ).output().await
+        .map_err(|e| AppError::internal(format!("spawn: {e}")))?;
+
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr);
+        return Err(AppError::internal(format!("{err}")));
+    }
+    // Parse the JSON summary printed to stdout
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(stdout.trim())
+        .unwrap_or_else(|_| serde_json::json!({"ok": true}));
+    Ok(Json(v))
 }
 
 // ── Scan: run quant_analysis_cli signals on all watchlist stocks ──────────
@@ -340,6 +448,10 @@ async fn main() {
         .route("/api/signals/:symbol", get(api_signals_get))
         // ── scan all ──
         .route("/api/scan", post(api_scan))
+        // ── 1-minute kline ──
+        .route("/api/kline1m/:symbol", get(api_kline1m_get))
+        .route("/api/fetch1m/:symbol", post(api_fetch1m))
+        .route("/api/hmm1m/:symbol", get(api_hmm1m))
         .layer(CorsLayer::permissive())
         .with_state(state);
 

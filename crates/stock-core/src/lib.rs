@@ -164,7 +164,18 @@ pub fn init_db(c: &rusqlite::Connection) {
             details TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(symbol, date, signal_type));
-         CREATE INDEX IF NOT EXISTS idx_sig_sym ON signal_log(symbol, date DESC);",
+         CREATE INDEX IF NOT EXISTS idx_sig_sym ON signal_log(symbol, date DESC);
+
+         CREATE TABLE IF NOT EXISTS kline_1min (
+            symbol TEXT NOT NULL,
+            ts     INTEGER NOT NULL,
+            open   REAL NOT NULL,
+            high   REAL NOT NULL,
+            low    REAL NOT NULL,
+            close  REAL NOT NULL,
+            volume INTEGER NOT NULL,
+            PRIMARY KEY (symbol, ts));
+         CREATE INDEX IF NOT EXISTS idx_k1m ON kline_1min(symbol, ts DESC);",
     )
     .expect("db init");
 }
@@ -201,6 +212,38 @@ pub fn db_upsert(c: &rusqlite::Connection, sym: &str, bars: &[Bar]) {
         );
     }
     let _ = tx.commit();
+}
+
+/// Query kline_1min bars between two UTC Unix timestamps.
+pub fn db_query_1min(c: &rusqlite::Connection, sym: &str, from: i64, to: i64) -> Vec<Bar> {
+    let mut s = match c.prepare(
+        "SELECT ts,open,high,low,close,volume FROM kline_1min WHERE symbol=?1 AND ts BETWEEN ?2 AND ?3 ORDER BY ts",
+    ) {
+        Ok(s) => s,
+        Err(_) => return vec![],
+    };
+    s.query_map(rusqlite::params![sym, from, to], |r| {
+        Ok(Bar {
+            time: r.get(0)?,
+            open: r.get(1)?,
+            high: r.get(2)?,
+            low: r.get(3)?,
+            close: r.get(4)?,
+            volume: r.get(5)?,
+        })
+    })
+    .map(|rows| rows.filter_map(|b| b.ok()).collect())
+    .unwrap_or_default()
+}
+
+/// Count stored 1-min bars for a symbol.
+pub fn count_1min(c: &rusqlite::Connection, sym: &str) -> i64 {
+    c.query_row(
+        "SELECT COUNT(*) FROM kline_1min WHERE symbol=?1",
+        rusqlite::params![sym],
+        |r| r.get(0),
+    )
+    .unwrap_or(0)
 }
 
 pub fn slice_bars(bars: Vec<Bar>, days: u64) -> Vec<Bar> {
@@ -361,11 +404,16 @@ pub async fn fetch_av(client: &reqwest::Client, symbol: &str, api_key: &str) -> 
 pub async fn cached_fetch(st: &AppState, symbol: &str, days: u64) -> Vec<Bar> {
     let now = chrono::Utc::now().timestamp();
     let from = now - (days as i64) * 86400;
+    let stale_after = now - 48 * 3600; // refetch if latest bar is older than 48h
     {
         let db = st.db.lock().unwrap();
         let cached = db_query(&db, symbol, from, now);
         if !cached.is_empty() {
-            return cached;
+            let latest_ts = cached.iter().map(|b| b.time).max().unwrap_or(0);
+            if latest_ts >= stale_after {
+                return cached; // fresh enough
+            }
+            // fall through to refetch stale data
         }
     }
     // Try Yahoo first (works for all symbols), fall back to Alpha Vantage
