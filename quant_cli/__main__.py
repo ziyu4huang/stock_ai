@@ -1,9 +1,13 @@
 """CLI entry point: python -m quant_cli <command> [args]"""
 
 import argparse
+import os
 import sys
 import json
 from datetime import datetime
+
+# Default output directory
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output")
 
 from .sources import get_provider
 from .features import build_features
@@ -41,9 +45,13 @@ def run_analyze(args):
             import traceback; traceback.print_exc()
 
     if args.output:
-        with open(args.output, "w") as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-        print(f"Results saved to {args.output}")
+        out_path = args.output
+    else:
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        out_path = os.path.join(OUTPUT_DIR, "analysis_result.json")
+    with open(out_path, "w") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+    print(f"Results saved to {out_path}")
 
 
 def _analyze_one(symbol, name, source_name, period, n_states):
@@ -251,12 +259,14 @@ def run_report(args):
         bic=bic, score=score,
     )
 
-    # Output
-    output_path = args.output or f"report_{symbol.replace('.', '_')}.html"
+    # Output — default to output/ directory
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    default_name = f"report_{symbol.replace('.', '_')}.html"
+    output_path = args.output or os.path.join(OUTPUT_DIR, default_name)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"\nReport saved to: {output_path}")
-    print(f"Open in browser: file://$(pwd)/{output_path}")
+    print(f"Open in browser: file://{os.path.abspath(output_path)}")
 
 
 def main():
