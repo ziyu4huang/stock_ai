@@ -7,16 +7,16 @@ Knowledge base is organized in `.agent/memory/` by category. Read relevant files
 - **Project:** Stock AI — Cargo workspace Rust binary + Python stock data & quant analysis CLI
 - **Rust stack:** Axum + reqwest + serde + chrono + rusqlite (backend), Bun + ECharts (frontend)
 - **Python stack:** yfinance + hmmlearn + pandas + numpy (stock data, analysis, reporting)
-- **Workspace:** `crates/stock-core` (types, indicators, SQLite, fetchers) + `crates/stock-server` (Axum binary)
+- **Workspace:** `crates/stock-core` + `crates/stock-server` + `crates/quant_trade_signal_tui` + `crates/quant_trade_signal_webui` + `crates/shioaji-mock` + `crates/quant_trade_cli`
 - **Build:** `cargo build` / `cargo run` (build.rs handles bun install + bundle automatically)
 - **Bun path (macOS):** `~/.bun/bin/bun` — auto-detected in build.rs via `$HOME`
 - **Bun path (Windows):** `C:/Users/ziyu4/.bun/bin/bun.exe`
-- **Ports:** Rust server :3003, Python CLI (no server)
+- **Ports:** stock-server :3003, whale radar TUI :3004, whale radar WebUI :3005
 - **Env:** `AV_API_KEY` required (Alpha Vantage API key, in zshrc)
 - **Python:** Use `python3` (macOS has no `python` alias, system Python 3.9)
 - **APIs:** TWSE OpenAPI (Taiwan stocks, .TW/.TWO), Alpha Vantage (US/global), Yahoo Finance (fallback)
 - **JS runtime:** Always use Bun (not npm). `bun install`, `bun run`
-- **API routes (Rust):**
+- **API routes (Rust — stock-server :3003):**
   - `GET /` — serve embedded webui.html
   - `GET /api/history/{symbol}?days=N` — OHLCV bars (cached)
   - `GET /api/quote/{symbol}` — latest quote
@@ -28,6 +28,11 @@ Knowledge base is organized in `.agent/memory/` by category. Read relevant files
   - `GET|POST|DELETE /api/strategies` — strategy CRUD
   - `GET /api/signals/{symbol}` — latest signals from SQLite
   - `POST /api/scan` — parallel scan all watchlist stocks
+- **Whale Radar WebUI routes (:3005):**
+  - `GET /` — serve embedded webui.html
+  - `GET /api/state` — JSON state snapshot
+  - `POST /api/command` — execute command (switch_tab, toggle_*, clear_alerts, quit)
+  - `WS /ws` — WebSocket real-time push (100ms)
 - **CLI commands (stock_api_cli):**
   - Python: `PYTHONPATH=stock_api_cli/python python3 -m stock_api_cli fetch SYMBOL [--source yfinance|av] [--period 1y]`
   - Python: `PYTHONPATH=stock_api_cli/python python3 -m stock_api_cli quote SYMBOL [--source yfinance|av]`
@@ -43,7 +48,6 @@ Knowledge base is organized in `.agent/memory/` by category. Read relevant files
 - **quant_analysis_cli structure:** `quant_analysis_cli/{python/quant_analysis_cli, bun/src, rust/}`
 - **Data pipeline:** `stock_api_cli fetch --store` → SQLite → `quant_analysis_cli analyze` (or `--input data.json` for file-based)
 - **SQLite:** `~/.stock_ai/data.db` — tables: kline_daily, watchlist, strategies, signal_log, hmm_models, analysis_results
-- **Pipeline doc:** [docs/plan/pipeline-architecture.md](docs/plan/pipeline-architecture.md) — full architecture with entry points
 
 ## Knowledge Files
 
@@ -63,29 +67,12 @@ _(empty - add notes here as patterns emerge)_
 ### quant/ - Quantitative Analysis
 - [stock-api-cli-architecture](.agent/memory/develop/stock-api-cli-architecture.md) - stock_api_cli package structure, providers, analysis, CLI commands
 
-### plan-todo/ - Plans & TODOs
-- [hmm-quant-assistant-todo](docs/plan/hmm-quant-assistant-todo.md) - HMM TODO (Phase 1-6)
-- [quantitative-backtesting-system-phase1](docs/plan/quantitative-backtesting-system-phase1.md) - Full plan reference
+### Phase 1 — Finish
+- [phase1-finish](docs/phase1-finish.md) - What was actually built: crates, architecture, detection pipeline, run commands
 
-### Phase 1 — Quantitative Backtesting System (Rust/Axum + Bun + SQLite + Python)
-- [phase1-todo](docs/plan/phase1-todo.md) - Master TODO checklist (29 tasks, 59% done)
-- [phase1-ch01-backend-enhancement](docs/plan/phase1-ch01-backend-enhancement.md) - Workspace refactor, AppState, error types
-- [phase1-ch02-market-data](docs/plan/phase1-ch02-market-data.md) - Weekly/monthly aggregation, smart cache, date filtering
-- [phase1-ch03-python-integration](docs/plan/phase1-ch03-python-integration.md) - Parameterized backtest API, model management endpoints
-- [phase1-ch04-frontend](docs/plan/phase1-ch04-frontend.md) - Bun/ECharts, volume overlay, indicator toggles, backtest viz
-- [phase1-ch05-dev-scripts](docs/plan/phase1-ch05-dev-scripts.md) - setup.sh, run.sh, command reference
-
-### AI Day Trading — Taiwan Market Knowledge Base
-- [README](docs/design/ai-day-trading-tw/README.md) - Overview, quick reference, cost structure
-- [01-tw-day-trading-mechanics](docs/design/ai-day-trading-tw/01-tw-day-trading-mechanics.md) - 當沖 rules, fees, settlement, market microstructure
-- [02-trading-instruments-comparison](docs/design/ai-day-trading-tw/02-trading-instruments-comparison.md) - Stocks, futures, options, warrants comparison
-- [03-ai-quant-techniques](docs/design/ai-day-trading-tw/03-ai-quant-techniques.md) - ML models, features, strategies, evaluation
-- [04-data-and-infrastructure](docs/design/ai-day-trading-tw/04-data-and-infrastructure.md) - Data sources, broker APIs (Shioaji), backtesting tools
-- [05-risks-and-principles](docs/design/ai-day-trading-tw/05-risks-and-principles.md) - Risk management, regulations, pitfalls, daily checklist
-- [06-system-architecture](docs/design/ai-day-trading-tw/06-system-architecture.md) - System design, component architecture, project structure, implementation phases
-- [08-large-trade-tracker](docs/design/ai-day-trading-tw/08-large-trade-tracker.md) - 大單追蹤偵測器, HMM 意圖分類, 點火序列偵測, Tick Streamer
-- [09-day-trading-scanner](docs/design/ai-day-trading-tw/09-day-trading-scanner.md) - 日內交易掃描器, 買賣信號偵測, 複合評分, 歷史回放
-- [10-geo-whale-hunting](docs/design/ai-day-trading-tw/10-geo-whale-hunting.md) - 地緣大戶狙擊, SurrealDB 籌碼地理, 3-Sigma DSP 脈衝, Welford 演算法
+### Archive — Legacy Plans & Design Docs
+- [plan-phase1-planning/](docs/archive/plan-phase1-planning/) - Original Phase 1 planning docs (superseded by phase1-finish.md)
+- [ai-day-trading-tw-kb/](docs/archive/ai-day-trading-tw-kb/) - Taiwan day trading knowledge base (10 docs)
 
 ### presentations/
 - [phase1-goal-set](docs/presentation/phase1-goal-set/slides.md) - Slidev deck: architecture, goals, roadmap (14 slides)

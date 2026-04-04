@@ -5,6 +5,7 @@ members = [
     "crates/stock-server",
     "crates/quant_trade_cli",
     "crates/quant_trade_signal_tui",
+    "crates/quant_trade_signal_webui",
     "crates/shioaji-mock",
 ]
 

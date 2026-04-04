@@ -1,0 +1,380 @@
+use chrono::{DateTime, Local};
+use serde::{Deserialize, Serialize};
+
+// ── Trade side ────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TradeSide {
+    Buy,
+    Sell,
+}
+impl TradeSide {
+    pub fn label(&self) -> &'static str { match self { TradeSide::Buy => "BUY", TradeSide::Sell => "SELL" } }
+    pub fn arrow(&self) -> &'static str { match self { TradeSide::Buy => "▲", TradeSide::Sell => "▼" } }
+    pub fn color(&self) -> &'static str { match self { TradeSide::Buy => "#69f0ae", TradeSide::Sell => "#ff5252" } }
+}
+
+// ── Position direction ────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum PositionDir { Long, Short }
+impl PositionDir {
+    pub fn label(&self) -> &'static str { match self { PositionDir::Long => "做多 LONG", PositionDir::Short => "做空 SHORT" } }
+    pub fn color(&self) -> &'static str { match self { PositionDir::Long => "#69f0ae", PositionDir::Short => "#ff5252" } }
+}
+
+// ── Raw tick ──────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Tick {
+    pub symbol: String,
+    pub timestamp: DateTime<Local>,
+    pub price: f64,
+    pub shares: u64,
+    pub side: TradeSide,
+    pub amount: f64, // NTD = price × shares
+}
+impl Tick {
+    pub fn amount_m(&self) -> f64 { self.amount / 1_000_000.0 }
+    pub fn lots(&self) -> u64 { self.shares / 1000 }
+}
+
+// ── Whale trade ───────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WhaleTrade { pub tick: Tick, pub rank: WhaleRank }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum WhaleRank { Medium, Large, Mega }
+impl WhaleRank {
+    pub fn from_amount(a: f64) -> Self {
+        if a >= 50_000_000.0 { WhaleRank::Mega }
+        else if a >= 20_000_000.0 { WhaleRank::Large }
+        else { WhaleRank::Medium }
+    }
+    pub fn label(&self) -> &'static str {
+        match self { WhaleRank::Medium => "WHALE", WhaleRank::Large => "BIG WHALE", WhaleRank::Mega => "MEGA WHALE" }
+    }
+    pub fn color(&self) -> &'static str {
+        match self { WhaleRank::Medium => "#00bcd4", WhaleRank::Large => "#ffd600", WhaleRank::Mega => "#e040fb" }
+    }
+}
+
+// ── Ignition event ────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub struct IgnitionEvent {
+    pub symbol: String,
+    pub timestamp: DateTime<Local>,
+    pub whale_count: usize,
+    pub price_move_ticks: f64, // positive = up (long), negative = down (short)
+    pub total_amount_m: f64,
+    pub direction: PositionDir,
+}
+
+// ── Market state (6-state, symmetric long/short) ──────────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum MarketState {
+    LongAccum,     // 低位吸籌 → 做多準備
+    LongIgnition,  // 多頭點火 → 建多倉
+    ShortDistrib,  // 高位出貨 → 做空準備
+    ShortIgnition, // 空頭點火 → 建空倉
+    Neutral,       // 整理中
+    Noise,         // 雜訊
+}
+impl MarketState {
+    pub fn label(&self) -> &'static str {
+        match self {
+            MarketState::LongAccum => "L-ACCUM",
+            MarketState::LongIgnition => "L-IGNITE",
+            MarketState::ShortDistrib => "S-DISTRIB",
+            MarketState::ShortIgnition => "S-IGNITE",
+            MarketState::Neutral => "NEUTRAL",
+            MarketState::Noise => "NOISE",
+        }
+    }
+    pub fn icon(&self) -> &'static str {
+        match self {
+            MarketState::LongAccum => "📈",
+            MarketState::LongIgnition => "🔥▲",
+            MarketState::ShortDistrib => "📉",
+            MarketState::ShortIgnition => "🔥▼",
+            MarketState::Neutral => "➖",
+            MarketState::Noise => "〰",
+        }
+    }
+    pub fn color(&self) -> &'static str {
+        match self {
+            MarketState::LongAccum => "#4caf50",
+            MarketState::LongIgnition => "#69f0ae",
+            MarketState::ShortDistrib => "#ef5350",
+            MarketState::ShortIgnition => "#ff5252",
+            MarketState::Neutral => "#888",
+            MarketState::Noise => "#555",
+        }
+    }
+    pub fn position_dir(&self) -> Option<PositionDir> {
+        match self {
+            MarketState::LongAccum | MarketState::LongIgnition => Some(PositionDir::Long),
+            MarketState::ShortDistrib | MarketState::ShortIgnition => Some(PositionDir::Short),
+            _ => None,
+        }
+    }
+}
+
+// ── Order book (五檔) ─────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct OrderLevel {
+    pub price: f64,
+    pub lots: u64, // 張 (1 lot = 1000 shares)
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OrderBook {
+    pub symbol: String,
+    pub timestamp: DateTime<Local>,
+    /// asks[0] = best ask (lowest ask = 賣1)
+    pub asks: [OrderLevel; 5],
+    /// bids[0] = best bid (highest bid = 買1)
+    pub bids: [OrderLevel; 5],
+    pub last_price: f64,
+    pub last_side: TradeSide,
+}
+
+// ── Feed event ────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub enum FeedEvent {
+    Tick(Tick),
+    Book(OrderBook),
+}
+
+// ── Stock config ──────────────────────────────────────────────────────────────
+
+pub struct StockConfig {
+    pub symbol: &'static str,
+    pub name: &'static str,
+    pub base_price: f64,
+    pub whale_threshold: f64,
+}
+
+/// All available stocks (first MONITORED_COUNT are shown in tabs)
+pub const STOCKS: &[StockConfig] = &[
+    StockConfig { symbol: "2330", name: "台積電", base_price: 840.0,  whale_threshold: 5_000_000.0 },
+    StockConfig { symbol: "2317", name: "鴻海",   base_price: 112.0,  whale_threshold: 5_000_000.0 },
+    StockConfig { symbol: "2454", name: "聯發科", base_price: 1200.0, whale_threshold: 5_000_000.0 },
+    StockConfig { symbol: "2881", name: "富邦金", base_price: 88.0,   whale_threshold: 3_000_000.0 },
+    StockConfig { symbol: "2882", name: "國泰金", base_price: 52.0,   whale_threshold: 3_000_000.0 },
+    StockConfig { symbol: "2303", name: "聯電",   base_price: 48.0,   whale_threshold: 3_000_000.0 },
+    StockConfig { symbol: "2308", name: "台達電", base_price: 320.0,  whale_threshold: 5_000_000.0 },
+    StockConfig { symbol: "2412", name: "中華電", base_price: 128.0,  whale_threshold: 3_000_000.0 },
+];
+
+/// Number of stocks shown as tabs (first N from STOCKS)
+pub const TAB_COUNT: usize = 5;
+
+pub fn tick_size(price: f64) -> f64 {
+    if price < 10.0 { 0.01 }
+    else if price < 50.0 { 0.05 }
+    else if price < 100.0 { 0.1 }
+    else if price < 500.0 { 0.5 }
+    else if price < 1000.0 { 1.0 }
+    else { 5.0 }
+}
+
+// ── Composite score & action advice ─────────────────────────────────────────
+
+/// Composite signal score: -100 (strong bear) to +100 (strong bull).
+#[derive(Debug, Clone, Serialize)]
+pub struct CompositeScore {
+    pub value: i32,
+    pub whale_buy_pts: i32,
+    pub whale_sell_pts: i32,
+    pub ignition_pts: i32,
+    pub pressure_pts: i32,
+    pub hmm_pts: i32,
+}
+
+impl CompositeScore {
+    pub fn new() -> Self {
+        Self { value: 0, whale_buy_pts: 0, whale_sell_pts: 0, ignition_pts: 0, pressure_pts: 0, hmm_pts: 0 }
+    }
+
+    /// Clamp to [-100, +100].
+    pub fn clamp(val: i32) -> i32 {
+        val.max(-100).min(100)
+    }
+}
+
+/// Action recommendation derived from composite score + market state.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ActionAdvice {
+    FollowBull,      // 跟多 — whale bull + ignition
+    WatchBull,       // 觀多 — whale bull accumulating
+    FollowBear,      // 跟空 — whale bear + ignition
+    WatchBear,       // 觀空 — whale bear distributing
+    StandAside,      // 觀望 — no clear signal
+}
+
+impl ActionAdvice {
+    pub fn label_zh(&self) -> &'static str {
+        match self {
+            ActionAdvice::FollowBull => "跟多進場 ▲",
+            ActionAdvice::WatchBull => "觀察做多 ▲",
+            ActionAdvice::FollowBear => "跟空進場 ▼",
+            ActionAdvice::WatchBear => "觀察做空 ▼",
+            ActionAdvice::StandAside => "觀望 —",
+        }
+    }
+    pub fn color(&self) -> &'static str {
+        match self {
+            ActionAdvice::FollowBull => "#69f0ae",
+            ActionAdvice::WatchBull => "#4caf50",
+            ActionAdvice::FollowBear => "#ff5252",
+            ActionAdvice::WatchBear => "#ef5350",
+            ActionAdvice::StandAside => "#555",
+        }
+    }
+    pub fn is_bull(&self) -> bool {
+        matches!(self, ActionAdvice::FollowBull | ActionAdvice::WatchBull)
+    }
+}
+
+// ── HMM state (4-state GaussianHMM confirmation layer) ────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum HmmState {
+    Accumulation,  // 吸籌 — quiet building phase
+    Ignition,      // 點火 — active directional move
+    Distribution,  // 出貨 — aggressive selling
+    Noise,         // 雜訊 — no signal
+}
+
+impl HmmState {
+    pub fn label(&self) -> &'static str {
+        match self {
+            HmmState::Accumulation => "H-ACCUM",
+            HmmState::Ignition => "H-IGNITE",
+            HmmState::Distribution => "H-DIST",
+            HmmState::Noise => "H-NOISE",
+        }
+    }
+    pub fn icon(&self) -> &'static str {
+        match self {
+            HmmState::Accumulation => "📊",
+            HmmState::Ignition => "⚡",
+            HmmState::Distribution => "📤",
+            HmmState::Noise => "〰",
+        }
+    }
+    pub fn color(&self) -> &'static str {
+        match self {
+            HmmState::Accumulation => "#00bcd4",
+            HmmState::Ignition => "#69f0ae",
+            HmmState::Distribution => "#ff5252",
+            HmmState::Noise => "#555",
+        }
+    }
+
+    /// Check if this HMM state agrees directionally with a rule-based MarketState.
+    pub fn agrees_with(&self, market: &MarketState) -> bool {
+        match (self, market) {
+            (HmmState::Accumulation, MarketState::LongAccum) => true,
+            (HmmState::Ignition, MarketState::LongIgnition) => true,
+            (HmmState::Ignition, MarketState::ShortIgnition) => true,
+            (HmmState::Distribution, MarketState::ShortDistrib) => true,
+            (HmmState::Noise, MarketState::Noise) => true,
+            (HmmState::Noise, MarketState::Neutral) => true,
+            _ => false,
+        }
+    }
+}
+
+/// HMM confirmation result.
+#[derive(Debug, Clone, Serialize)]
+pub struct HmmConfirmation {
+    pub hmm_state: HmmState,
+    pub agrees_with_rules: bool,
+    pub obs_count: usize,
+}
+
+impl HmmConfirmation {
+    pub fn new(hmm_state: HmmState, market_state: &MarketState, obs_count: usize) -> Self {
+        Self {
+            agrees_with_rules: hmm_state.agrees_with(market_state),
+            hmm_state,
+            obs_count,
+        }
+    }
+}
+
+/// Last sound alert info for UI display.
+#[derive(Debug, Clone, Serialize)]
+pub struct SoundInfo {
+    pub label: String,
+    pub timestamp: DateTime<Local>,
+}
+
+// ── Anti-spoof / order book analytics ────────────────────────────────────────
+
+/// A single suspicious order book level event.
+#[derive(Debug, Clone, Serialize)]
+pub struct SuspiciousLevel {
+    pub side: String,    // "bid" or "ask"
+    pub level: usize,    // 0-4
+    pub kind: String,    // "sudden_add" or "sudden_remove"
+    pub volume: i64,     // how much appeared/disappeared
+}
+
+/// Summary of order book changes for the frontend.
+#[derive(Debug, Clone, Serialize)]
+pub struct BookDeltaSummary {
+    /// Volume delta at each bid level since last snapshot
+    pub bid_deltas: [i64; 5],
+    /// Volume delta at each ask level since last snapshot
+    pub ask_deltas: [i64; 5],
+    /// Suspicious events detected
+    pub suspicious_levels: Vec<SuspiciousLevel>,
+    /// Net bid volume added over last 2 minutes
+    pub cumulative_bid_delta: i64,
+    /// Net ask volume added over last 2 minutes
+    pub cumulative_ask_delta: i64,
+}
+
+impl BookDeltaSummary {
+    pub fn empty() -> Self {
+        Self {
+            bid_deltas: [0; 5],
+            ask_deltas: [0; 5],
+            suspicious_levels: Vec::new(),
+            cumulative_bid_delta: 0,
+            cumulative_ask_delta: 0,
+        }
+    }
+}
+
+/// Whale quality classification — not all whales are equal.
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct WhaleQualityMetrics {
+    /// Total whale BUY volume in millions NTD
+    pub whale_buy_volume_m: f64,
+    /// Total whale SELL volume in millions NTD
+    pub whale_sell_volume_m: f64,
+    /// Whale trades at best bid/ask (aggressive = more credible)
+    pub aggressive_buys: u32,
+    pub aggressive_sells: u32,
+    /// Number of suspicious whale clusters (3+ whales in 5s)
+    pub cluster_count: u32,
+    /// Trade velocity (ticks/minute, rolling 2min)
+    pub trade_velocity: f64,
+    /// Number of sudden order book adds (potential spoof setup)
+    pub suspicious_adds: u32,
+    /// Number of sudden order book removes (potential spoof execution)
+    pub suspicious_removes: u32,
+    /// Absorption score 0-100: high = real demand/supply absorbing opposite side
+    pub absorption_score: f64,
+    /// Signal confidence 0-100, adjusted for spoof risk
+    pub signal_confidence: f64,
+}

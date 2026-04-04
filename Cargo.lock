@@ -1346,6 +1346,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "quant_trade_signal_webui"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "clap",
+ "insta",
+ "rand",
+ "serde",
+ "serde_json",
+ "shioaji-mock",
+ "tokio",
+ "tower-http 0.5.2",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐋 WHALE RADAR — Web UI</title>
+<style>
+  :root {
+    --bg: #0a0a0a; --bg2: #111; --bg3: #1a1a1a;
+    --border: #333; --text: #ccc; --dim: #666;
+    --green: #4caf50; --lgreen: #69f0ae; --red: #ef5350; --lred: #ff5252;
+    --cyan: #00bcd4; --yellow: #ffd600; --magenta: #e040fb;
+    --btn-hover: #252525; --btn-active: #333;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Menlo', 'SF Mono', 'Consolas', monospace; font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Tab bar ─────────────────────────────────────── */
+  .tab-bar { display: flex; align-items: center; background: var(--bg2); border-bottom: 1px solid var(--border); padding: 4px 8px; gap: 4px; flex-shrink: 0; min-height: 36px; }
+  .tab-bar .logo { color: var(--text); font-size: 13px; font-weight: bold; margin-right: 8px; white-space: nowrap; letter-spacing: 0.5px; }
+  .tab-btn { background: transparent; border: 1px solid transparent; color: var(--dim); padding: 4px 10px; cursor: pointer; font-family: inherit; font-size: 11px; border-radius: 4px; transition: all 0.15s ease; user-select: none; }
+  .tab-btn:hover { background: var(--btn-hover); color: var(--text); }
+  .tab-btn.active { background: #fff; color: #000; font-weight: bold; border-color: #fff; }
+  .tab-btn.has-signal { color: var(--lred); font-weight: bold; animation: pulse-tab 1.5s ease-in-out infinite; }
+  @keyframes pulse-tab { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+  .tab-sep { flex: 1; }
+
+  /* ── Toolbar buttons ─────────────────────────────── */
+  .toolbar-btn { background: transparent; border: 1px solid var(--border); color: var(--dim); padding: 3px 8px; cursor: pointer; font-family: inherit; font-size: 11px; border-radius: 4px; transition: all 0.15s ease; user-select: none; display: inline-flex; align-items: center; gap: 3px; }
+  .toolbar-btn:hover { background: var(--btn-hover); color: var(--text); border-color: #555; }
+  .toolbar-btn:active { background: var(--btn-active); transform: scale(0.96); }
+  .toolbar-btn.on { border-color: #555; color: var(--text); }
+  .toolbar-btn.pause-active { background: rgba(255,214,0,0.15); border-color: var(--yellow); color: var(--yellow); }
+
+  /* ── Main 3-column ───────────────────────────────── */
+  .main { display: flex; flex: 1; overflow: hidden; }
+  .col-left { width: 38%; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+  .col-mid { width: 22%; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+  .col-right { width: 40%; display: flex; flex-direction: column; }
+
+  .panel { border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .panel-header { background: var(--bg2); padding: 3px 8px; font-size: 11px; color: var(--dim); border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
+  .panel-body { padding: 4px 6px; overflow-y: auto; flex: 1; scroll-behavior: smooth; }
+
+  /* ── Order book ──────────────────────────────────── */
+  .ob-row { display: flex; align-items: center; padding: 2px 4px; border-radius: 3px; transition: background 0.1s; cursor: default; }
+  .ob-row:hover { background: rgba(255,255,255,0.04); }
+  .ob-label { width: 50px; color: var(--dim); }
+  .ob-price { width: 80px; text-align: right; }
+  .ob-lots { width: 60px; text-align: right; }
+  .ob-bar { flex: 1; height: 12px; margin-left: 6px; border-radius: 3px; transition: width 0.3s ease; }
+  .ask .ob-price, .ask .ob-label { color: var(--red); }
+  .ask .ob-bar { background: rgba(239,83,80,0.3); }
+  .bid .ob-price, .bid .ob-label { color: var(--green); }
+  .bid .ob-bar { background: rgba(76,175,80,0.3); }
+  .spread-row { text-align: center; padding: 4px 0; color: #fff; font-weight: bold; font-size: 13px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .pressure-row { text-align: center; padding: 3px 0; font-size: 11px; }
+  .pressure-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 2px; }
+  .pressure-bar .bid-bar { background: var(--green); transition: width 0.3s; }
+  .pressure-bar .ask-bar { background: var(--red); transition: width 0.3s; }
+
+  /* ── Signal radar ────────────────────────────────── */
+  .score-bar-wrap { margin: 6px 0; }
+  .score-label { font-size: 18px; font-weight: bold; }
+  .score-bar { height: 16px; background: var(--bg3); border-radius: 4px; position: relative; margin: 3px 0; overflow: hidden; }
+  .score-bar .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #444; z-index: 1; }
+  .score-bar .fill { position: absolute; top: 0; bottom: 0; border-radius: 4px; transition: all 0.3s ease; }
+  .market-state { font-size: 15px; font-weight: bold; padding: 4px 0; }
+  .hmm-state { font-size: 12px; padding: 2px 0; }
+  .hmm-agree { color: var(--green); font-size: 10px; margin-left: 6px; }
+  .hmm-div { color: var(--yellow); font-size: 10px; margin-left: 6px; }
+  .action-box { border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin: 6px 0; transition: border-color 0.3s; }
+  .action-label { font-size: 15px; font-weight: bold; text-align: center; padding: 2px; }
+  .sl-label { font-size: 11px; color: var(--yellow); text-align: center; margin-top: 2px; }
+  .counter-row { display: flex; align-items: center; padding: 2px 0; font-size: 11px; }
+  .counter-label { width: 80px; color: var(--dim); }
+  .counter-bar { flex: 1; height: 8px; border-radius: 3px; margin: 0 4px; transition: width 0.3s ease; }
+  .counter-val { width: 24px; text-align: right; font-weight: bold; }
+  .price-row { text-align: center; padding: 6px 0; font-size: 14px; }
+  .sound-row { font-size: 11px; color: var(--cyan); padding: 2px 0; }
+
+  /* ── Alerts ──────────────────────────────────────── */
+  .alert-item { padding: 3px 4px; border-bottom: 1px solid rgba(255,255,255,0.05); border-radius: 3px; transition: background 0.15s; cursor: pointer; }
+  .alert-item:hover { background: rgba(255,255,255,0.04); }
+  .alert-time { color: var(--dim); font-size: 10px; }
+  .alert-line1 { font-size: 11px; }
+  .alert-line2 { font-size: 10px; color: var(--dim); }
+  .alert-item.ignition { border-left: 3px solid; padding-left: 6px; }
+  .alert-item.ignition.bull { border-left-color: var(--lgreen); }
+  .alert-item.ignition.bear { border-left-color: var(--lred); }
+
+  /* ── Tick feed ───────────────────────────────────── */
+  .tick-item { display: flex; align-items: center; padding: 2px 4px; font-size: 11px; border-radius: 3px; transition: background 0.1s; }
+  .tick-item:hover { background: rgba(255,255,255,0.04); }
+  .tick-item.whale { background: rgba(255,255,255,0.02); }
+  .tick-time { color: var(--dim); width: 64px; }
+  .tick-arrow { width: 14px; text-align: center; font-weight: bold; }
+  .tick-price { width: 70px; text-align: right; }
+  .tick-tag { width: 60px; font-size: 10px; font-weight: bold; }
+  .tick-amount { width: 50px; text-align: right; }
+  .tick-shares { color: var(--dim); }
+
+  /* ── Status bar ──────────────────────────────────── */
+  .status-bar { background: var(--bg2); border-top: 1px solid var(--border); padding: 3px 10px; font-size: 10px; color: var(--dim); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+  .status-dot.live { background: var(--green); animation: blink-dot 2s ease-in-out infinite; }
+  .status-dot.paused { background: var(--yellow); }
+  .status-dot.disconnected { background: var(--red); }
+  @keyframes blink-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* ── Scrollbar ───────────────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+  /* ── Responsive ──────────────────────────────────── */
+  @media (max-width: 900px) {
+    .main { flex-direction: column; }
+    .col-left, .col-mid, .col-right { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 33vh; }
+  }
+</style>
+</head>
+<body>
+<!-- Tab bar -->
+<div class="tab-bar">
+  <span class="logo">🐋 WHALE RADAR</span>
+  <div id="tabs"></div>
+  <span class="tab-sep"></span>
+  <button id="ind-auto" class="toolbar-btn on" onclick="cmd('toggle_auto')" title="Auto-switch to ignition tab">A ◉</button>
+  <button id="ind-sound" class="toolbar-btn on" onclick="cmd('toggle_sound')" title="Toggle sound alerts">🔊</button>
+  <button id="ind-voice" class="toolbar-btn on" onclick="cmd('toggle_voice')" title="Toggle voice alerts">🗣</button>
+  <button id="ind-pause" class="toolbar-btn" onclick="cmd('toggle_pause')" title="Pause/Resume feed">▶</button>
+  <button class="toolbar-btn" onclick="cmd('clear_alerts')" title="Clear alerts">✕ Clear</button>
+</div>
+
+<!-- Main 3-column -->
+<div class="main">
+  <!-- Left: Order book -->
+  <div class="col-left">
+    <div class="panel" style="flex:1">
+      <div class="panel-header"><span id="ob-title">ORDER BOOK 五檔</span><span id="ob-spread" style="font-size:10px"></span></div>
+      <div class="panel-body" id="order-book"></div>
+    </div>
+  </div>
+  <!-- Middle: Signal radar + alerts -->
+  <div class="col-mid">
+    <div class="panel" style="flex:55">
+      <div class="panel-header">SIGNAL RADAR 信號雷達</div>
+      <div class="panel-body" id="signal-radar"></div>
+    </div>
+    <div class="panel" style="flex:45">
+      <div class="panel-header">ALERTS <span id="alert-count" style="color:var(--yellow);margin-left:4px"></span></div>
+      <div class="panel-body" id="alerts"></div>
+    </div>
+  </div>
+  <!-- Right: Tick feed -->
+  <div class="col-right">
+    <div class="panel" style="flex:1">
+      <div class="panel-header" id="tick-title">TICK FEED</div>
+      <div class="panel-body" id="tick-feed"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <span style="display:flex;align-items:center"><span id="status-dot" class="status-dot live"></span><span id="status-label">LIVE</span></span>
+  <span id="status-conn">WS: connected</span>
+  <span style="flex:1"></span>
+  <span id="status-events">Ev:0</span>
+  <span id="status-time"></span>
+</div>
+
+<script>
+let ws;
+let lastState = null;
+let wsConnected = false;
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen = () => { wsConnected = true; updateConnStatus(); };
+  ws.onmessage = (e) => {
+    try {
+      lastState = JSON.parse(e.data);
+      render(lastState);
+    } catch(err) { console.error('parse error', err); }
+  };
+  ws.onclose = () => { wsConnected = false; updateConnStatus(); setTimeout(connect, 1000); };
+  ws.onerror = () => {};
+  updateConnStatus();
+}
+connect();
+
+function updateConnStatus() {
+  const dot = document.getElementById('status-dot');
+  const conn = document.getElementById('status-conn');
+  if (wsConnected) {
+    dot.className = 'status-dot live';
+    conn.textContent = 'WS: connected';
+  } else {
+    dot.className = 'status-dot disconnected';
+    conn.textContent = 'WS: reconnecting...';
+  }
+}
+
+function cmd(action, extra) {
+  const body = extra ? { action, ...extra } : { action };
+  fetch('/api/command', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+}
+
+function switchTab(i) { cmd('switch_tab', { index: i }); }
+
+function render(s) {
+  // ── Tabs ──
+  const tabsEl = document.getElementById('tabs');
+  let tabsHtml = '';
+  s.tabs.forEach((t, i) => {
+    const active = i === s.active_tab ? ' active' : '';
+    const signal = t.has_signal ? ' has-signal' : '';
+    const icon = t.has_signal ? (t.signal_dir === 'Long' ? '🔥▲' : t.signal_dir === 'Short' ? '🔥▼' : '★') : '';
+    tabsHtml += `<button class="tab-btn${active}${signal}" onclick="switchTab(${i})">${i+1} ${t.symbol} ${t.name}${icon}</button>`;
+  });
+  tabsEl.innerHTML = tabsHtml;
+
+  // ── Toolbar buttons ──
+  const autoEl = document.getElementById('ind-auto');
+  autoEl.textContent = s.auto_switch ? 'A ◉' : 'A ○';
+  autoEl.className = 'toolbar-btn' + (s.auto_switch ? ' on' : '');
+  autoEl.style.color = s.auto_switch ? 'var(--green)' : '';
+
+  const soundEl = document.getElementById('ind-sound');
+  soundEl.textContent = s.sound_on ? '🔊' : '🔇';
+  soundEl.className = 'toolbar-btn' + (s.sound_on ? ' on' : '');
+  soundEl.style.color = s.sound_on ? 'var(--cyan)' : '';
+
+  const voiceEl = document.getElementById('ind-voice');
+  voiceEl.textContent = s.voice_on ? '🗣' : '  ';
+  voiceEl.className = 'toolbar-btn' + (s.voice_on ? ' on' : '');
+  voiceEl.style.color = s.voice_on ? 'var(--yellow)' : '';
+
+  const pauseEl = document.getElementById('ind-pause');
+  pauseEl.textContent = s.paused ? '▶ Resume' : '⏸ Pause';
+  pauseEl.className = 'toolbar-btn' + (s.paused ? ' pause-active' : '');
+
+  // Status
+  const dotEl = document.getElementById('status-dot');
+  const labelEl = document.getElementById('status-label');
+  if (s.paused) {
+    dotEl.className = 'status-dot paused';
+    labelEl.textContent = 'PAUSED';
+  } else if (wsConnected) {
+    dotEl.className = 'status-dot live';
+    labelEl.textContent = 'LIVE';
+  }
+  document.getElementById('status-events').textContent = `Ev:${s.total_events}`;
+  document.getElementById('status-time').textContent = new Date().toLocaleTimeString();
+
+  // ── Active tab data ──
+  const v = s.tabs[s.active_tab];
+
+  // ── Order book ──
+  document.getElementById('ob-title').textContent = `五檔 ${v.symbol} ${v.name}`;
+  const obEl = document.getElementById('order-book');
+  if (v.order_book) {
+    const ob = v.order_book;
+    let html = '';
+    const maxLots = Math.max(...ob.asks.map(l => l.lots), ...ob.bids.map(l => l.lots), 1);
+    for (let i = ob.asks.length - 1; i >= 0; i--) {
+      const l = ob.asks[i];
+      const pct = (l.lots / maxLots * 100).toFixed(0);
+      html += `<div class="ob-row ask"><span class="ob-label">${l.label}</span><span class="ob-price">${l.price.toFixed(2)}</span><span class="ob-lots">${l.lots}張</span><div class="ob-bar" style="width:${pct}%"></div></div>`;
+    }
+    html += `<div class="spread-row">${ob.last_price.toFixed(2)} ${ob.last_side === 'Buy' ? '▲' : '▼'}  spread ${ob.spread.toFixed(2)}</div>`;
+    for (const l of ob.bids) {
+      const pct = (l.lots / maxLots * 100).toFixed(0);
+      html += `<div class="ob-row bid"><span class="ob-label">${l.label}</span><span class="ob-price">${l.price.toFixed(2)}</span><span class="ob-lots">${l.lots}張</span><div class="ob-bar" style="width:${pct}%"></div></div>`;
+    }
+    html += `<div class="pressure-row"><span style="color:var(--green)">買壓 ${ob.bid_pressure_pct.toFixed(0)}%</span> / <span style="color:var(--red)">賣壓 ${ob.ask_pressure_pct.toFixed(0)}%</span></div>`;
+    html += `<div class="pressure-bar"><div class="bid-bar" style="width:${ob.bid_pressure_pct.toFixed(0)}%"></div><div class="ask-bar" style="width:${ob.ask_pressure_pct.toFixed(0)}%"></div></div>`;
+    obEl.innerHTML = html;
+  } else {
+    obEl.innerHTML = '<div style="color:var(--dim);padding:12px;text-align:center">Waiting for order book...</div>';
+  }
+
+  // ── Signal radar ──
+  document.getElementById('tick-title').textContent = `TICK FEED  ${v.symbol}`;
+  const radarEl = document.getElementById('signal-radar');
+  const scoreColor = v.composite_score > 0 ? 'var(--lgreen)' : v.composite_score < 0 ? 'var(--lred)' : 'var(--dim)';
+  const scorePct = ((v.composite_score + 100) / 200 * 100).toFixed(1);
+  const stateColor = v.state.includes('L-') ? 'var(--lgreen)' : v.state.includes('S-') ? 'var(--lred)' : v.state === 'NEUTRAL' ? 'var(--dim)' : '#555';
+  const actionColor = v.action.includes('Bull') ? 'var(--lgreen)' : v.action.includes('Bear') ? 'var(--lred)' : 'var(--dim)';
+  const chgColor = v.change_pct > 0 ? 'var(--lgreen)' : v.change_pct < 0 ? 'var(--lred)' : 'var(--dim)';
+  const hmmColor = v.hmm_state === 'H-IGNITE' ? 'var(--lgreen)' : v.hmm_state === 'H-ACCUM' ? 'var(--cyan)' : v.hmm_state === 'H-DIST' ? 'var(--lred)' : 'var(--dim)';
+  const maxWhale = Math.max(v.whale_buys, v.whale_sells, v.long_ignitions, v.short_ignitions, 1);
+
+  radarEl.innerHTML = `
+    <div class="score-bar-wrap">
+      <span class="score-label" style="color:${scoreColor}">${v.composite_score >= 0 ? '+' : ''}${v.composite_score}</span>
+      <div class="score-bar">
+        <div class="mid"></div>
+        <div class="fill" style="background:${scoreColor};left:${v.composite_score >= 0 ? '50%' : scorePct + '%'};right:${v.composite_score >= 0 ? (100 - parseFloat(scorePct)) + '%' : '50%'}"></div>
+      </div>
+    </div>
+    <div class="market-state" style="color:${stateColor}">${v.state_icon} ${v.state}</div>
+    <div class="hmm-state">HMM <span style="color:${hmmColor}">${v.hmm_state_icon} ${v.hmm_state}</span> <span class="${v.hmm_agrees ? 'hmm-agree' : 'hmm-div'}">${v.hmm_agrees ? '✓ AGREE' : '✗ DIV'}</span></div>
+    <div class="action-box" style="border-color:${actionColor}30">
+      <div class="action-label" style="color:${actionColor}">${v.action_label_zh}</div>
+      <div class="sl-label">${v.stop_loss !== null ? 'S/L: ' + v.stop_loss.toFixed(2) : 'S/L: —'}</div>
+    </div>
+    <div style="margin-top:4px">
+      <div class="counter-row"><span class="counter-label">WhaleBuy ▲</span><div class="counter-bar" style="background:rgba(105,240,174,0.3);width:${(v.whale_buys/maxWhale*100).toFixed(0)}%"></div><span class="counter-val" style="color:var(--lgreen)">${v.whale_buys}</span></div>
+      <div class="counter-row"><span class="counter-label">WhaleSell▼</span><div class="counter-bar" style="background:rgba(255,82,82,0.3);width:${(v.whale_sells/maxWhale*100).toFixed(0)}%"></div><span class="counter-val" style="color:var(--lred)">${v.whale_sells}</span></div>
+      <div class="counter-row"><span class="counter-label">IgnLong  ▲</span><div class="counter-bar" style="background:rgba(76,175,80,0.3);width:${(v.long_ignitions/maxWhale*100).toFixed(0)}%"></div><span class="counter-val" style="color:var(--green)">${v.long_ignitions}</span></div>
+      <div class="counter-row"><span class="counter-label">IgnShort ▼</span><div class="counter-bar" style="background:rgba(239,83,80,0.3);width:${(v.short_ignitions/maxWhale*100).toFixed(0)}%"></div><span class="counter-val" style="color:var(--red)">${v.short_ignitions}</span></div>
+    </div>
+    <div class="price-row">
+      <span style="color:#fff;font-weight:bold;font-size:16px">${v.last_price.toFixed(2)}</span>
+      <span style="color:${chgColor}">${v.change_pct >= 0 ? '+' : ''}${v.change_pct.toFixed(2)}%</span>
+      <span style="color:var(--dim)">Ticks:${v.total_ticks}</span>
+    </div>
+    ${v.last_sound ? `<div class="sound-row">🔊 ${v.last_sound.label} ${v.last_sound.timestamp}</div>` : ''}
+  `;
+
+  // ── Alerts ──
+  const alertsEl = document.getElementById('alerts');
+  document.getElementById('alert-count').textContent = v.alerts.length > 0 ? `(${v.alerts.length})` : '';
+  if (v.alerts.length === 0) {
+    alertsEl.innerHTML = '<div style="color:var(--dim);padding:8px;text-align:center">Watching for whale activity...</div>';
+  } else {
+    let ahtml = '';
+    v.alerts.forEach((a, i) => {
+      const color = a.is_ignition ? (a.line1.includes('▲') ? 'var(--lgreen)' : 'var(--lred)') : 'var(--cyan)';
+      const ignClass = a.is_ignition ? (a.line1.includes('▲') ? ' ignition bull' : ' ignition bear') : '';
+      ahtml += `<div class="alert-item${ignClass}"><div class="alert-time">${a.icon} ${a.timestamp}</div><div class="alert-line1" style="color:${color};font-weight:${a.is_ignition ? 'bold' : 'normal'}">${a.line1}</div><div class="alert-line2">${a.line2}</div></div>`;
+    });
+    alertsEl.innerHTML = ahtml;
+  }
+
+  // ── Tick feed ──
+  const feedEl = document.getElementById('tick-feed');
+  if (v.ticks.length === 0) {
+    feedEl.innerHTML = '<div style="color:var(--dim);padding:8px;text-align:center">Starting tick feed...</div>';
+  } else {
+    let thtml = '';
+    v.ticks.forEach((t, i) => {
+      const sideColor = t.side === 'Buy' ? 'var(--lgreen)' : 'var(--lred)';
+      const tagColor = t.amount_m >= 50 ? 'var(--magenta)' : t.amount_m >= 20 ? 'var(--yellow)' : t.amount_m >= 5 ? 'var(--cyan)' : 'var(--dim)';
+      const amtColor = t.amount_m >= 5 ? 'var(--yellow)' : 'var(--dim)';
+      const isWhale = t.amount_m >= 5;
+      thtml += `<div class="tick-item${isWhale ? ' whale' : ''}"><span class="tick-time">${t.timestamp}</span><span class="tick-arrow" style="color:${sideColor}">${t.arrow}</span><span class="tick-price" style="color:${sideColor}">${t.price.toFixed(2)}</span><span class="tick-tag" style="color:${tagColor}">${t.whale_tag}</span><span class="tick-amount" style="color:${amtColor}">${t.amount_m.toFixed(1)}M</span><span class="tick-shares">${t.shares}sh</span></div>`;
+    });
+    feedEl.innerHTML = thtml;
+  }
+}
+
+// Keyboard shortcuts (still supported as convenience)
+document.addEventListener('keydown', (e) => {
+  // Don't capture if user is in an input
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key >= '1' && e.key <= '9') switchTab(parseInt(e.key) - 1);
+  else if (e.key === 'ArrowRight' || e.key === 'Tab') { e.preventDefault(); cmd('next_tab'); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); cmd('prev_tab'); }
+  else if (e.key === 'p' || e.key === 'P') cmd('toggle_pause');
+  else if (e.key === 'a' || e.key === 'A') cmd('toggle_auto');
+  else if (e.key === 's' || e.key === 'S') cmd('toggle_sound');
+  else if (e.key === 'v' || e.key === 'V') cmd('toggle_voice');
+  else if (e.key === ' ') { e.preventDefault(); cmd('clear_alerts'); }
+});
+</script>
+</body>
+</html>
