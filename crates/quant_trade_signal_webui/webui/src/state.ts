@@ -61,8 +61,15 @@ export class StateStore {
       p.voice_on !== c.voice_on ||
       p.paused !== c.paused;
 
-    // Order book changed?
-    const orderBookChanged = activeTabChanged || !orderBookEqual(prevTab.order_book, currTab.order_book);
+    // Order book changed? (including flow metrics: delta, absorption, aggression)
+    const orderBookChanged = activeTabChanged ||
+      !orderBookEqual(prevTab.order_book, currTab.order_book) ||
+      prevTab.absorption_score !== currTab.absorption_score ||
+      prevTab.aggressive_buys !== currTab.aggressive_buys ||
+      prevTab.aggressive_sells !== currTab.aggressive_sells ||
+      prevTab.book_delta.cumulative_bid_delta !== currTab.book_delta.cumulative_bid_delta ||
+      prevTab.book_delta.cumulative_ask_delta !== currTab.book_delta.cumulative_ask_delta ||
+      prevTab.book_delta.suspicious_levels.length !== currTab.book_delta.suspicious_levels.length;
 
     // Radar: score, state, action, hmm, counters, price
     const radarChanged = activeTabChanged ||

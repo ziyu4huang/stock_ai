@@ -96,38 +96,54 @@ fn main() {
   /* ── Order book ──────────────────────────────────── */
   .ob-row {{ display: flex; align-items: center; padding: 2px 4px; border-radius: 3px; transition: background 0.1s; cursor: default; }}
   .ob-row:hover {{ background: rgba(255,255,255,0.04); }}
-  .ob-label {{ width: 50px; color: var(--dim); }}
+  .ob-label {{ width: 50px; color: var(--dim); font-size: 11px; }}
   .ob-price {{ width: 80px; text-align: right; }}
   .ob-lots {{ width: 60px; text-align: right; }}
-  .ob-bar {{ flex: 1; height: 12px; margin-left: 6px; border-radius: 3px; transition: width 0.3s ease; }}
-  .ob-delta {{ width: 44px; text-align: right; font-size: 10px; font-weight: bold; flex-shrink: 0; }}
-  .ob-row.suspicious {{ background: rgba(255,214,0,0.06); border-left: 2px solid var(--yellow); }}
-  .cum-delta-label {{ display: flex; justify-content: space-between; padding: 2px 4px; font-size: 10px; }}
-  .cum-bar {{ margin: 2px 0; }}
+  .ob-bar {{ flex: 1; height: 12px; margin-left: 6px; border-radius: 3px; transition: width 0.3s ease; position: relative; }}
+  .ob-delta {{ width: 56px; text-align: right; font-size: 11px; font-weight: bold; flex-shrink: 0; padding: 1px 3px; border-radius: 2px; }}
+  .ob-delta.pos {{ color: var(--lgreen); background: rgba(105,240,174,0.1); }}
+  .ob-delta.neg {{ color: var(--lred); background: rgba(255,82,82,0.1); }}
+  .ob-delta.large {{ animation: delta-pulse 0.6s ease-out; }}
+  .ob-badge {{ font-size: 9px; font-weight: bold; padding: 0 3px; border-radius: 2px; margin-left: 2px; }}
+  .ob-badge.wall-up {{ color: var(--yellow); background: rgba(255,214,0,0.15); }}
+  .ob-badge.wall-gone {{ color: var(--red); background: rgba(255,82,82,0.15); }}
+  .ob-row.suspicious {{ background: rgba(255,214,0,0.08); border-left: 2px solid var(--yellow); }}
+  .ob-row.suspicious .ob-label {{ color: var(--yellow); }}
   .ask .ob-price, .ask .ob-label {{ color: var(--red); }}
   .ask .ob-bar {{ background: rgba(239,83,80,0.3); }}
   .bid .ob-price, .bid .ob-label {{ color: var(--green); }}
   .bid .ob-bar {{ background: rgba(76,175,80,0.3); }}
   .spread-row {{ text-align: center; padding: 4px 0; color: #fff; font-weight: bold; font-size: 13px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }}
-  .pressure-row {{ text-align: center; padding: 3px 0; font-size: 11px; }}
-  .pressure-bar {{ display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 2px; }}
-  .pressure-bar .bid-bar {{ background: var(--green); transition: width 0.3s; }}
-  .pressure-bar .ask-bar {{ background: var(--red); transition: width 0.3s; }}
 
-  /* ── Order book delta & spoof indicators ────────── */
-  .ob-delta {{ width: 40px; text-align: right; font-size: 10px; font-weight: bold; }}
-  .ob-row.suspicious {{ background: rgba(255,214,0,0.08); border-left: 2px solid var(--yellow); }}
-  .ob-row.suspicious .ob-label {{ color: var(--yellow); }}
-  .cum-delta-label {{ display: flex; justify-content: space-between; padding: 4px 4px 2px; font-size: 10px; }}
-  .cum-bar {{ margin-top: 2px; }}
-  .spread-row {{ text-align: center; padding: 4px 0; color: #fff; font-weight: bold; font-size: 13px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }}
-  .spoof-alert {{ background: rgba(255,214,0,0.1); border: 1px solid rgba(255,214,0,0.3); border-radius: 4px; padding: 4px 8px; margin: 4px 0; font-size: 11px; color: var(--yellow); }}
-  .conf-bar-wrap {{ margin: 4px 0; }}
-  .conf-label {{ font-size: 11px; display: flex; justify-content: space-between; }}
-  .conf-bar {{ height: 10px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin: 2px 0; }}
-  .conf-fill {{ height: 100%; border-radius: 3px; transition: width 0.3s ease; }}
-  .velocity-ind {{ font-size: 10px; color: var(--dim); padding: 2px 0; }}
-  .velocity-ind.elevated {{ color: var(--yellow); }}
+  /* ── Order book: Flow summary (Section A) ──────────── */
+  .ob-flow-summary {{ padding: 4px 6px; border-bottom: 1px solid var(--border); }}
+  .flow-metric {{ display: flex; align-items: center; padding: 1px 0; font-size: 10px; gap: 4px; }}
+  .flow-metric-label {{ width: 44px; color: var(--dim); flex-shrink: 0; }}
+  .flow-metric-bar {{ flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }}
+  .flow-metric-fill {{ height: 100%; border-radius: 3px; transition: width 0.3s ease; }}
+  .flow-metric-val {{ width: 48px; text-align: right; font-size: 10px; flex-shrink: 0; }}
+
+  /* ── Order book: Spoof detail (Section C) ─────────── */
+  .ob-spoof-detail {{ padding: 3px 6px; border-bottom: 1px solid var(--border); }}
+  .spoof-row {{ display: flex; align-items: center; padding: 1px 0; font-size: 10px; gap: 4px; }}
+  .spoof-row + .spoof-row {{ border-top: 1px solid rgba(255,255,255,0.04); }}
+  .spoof-badge {{ font-size: 9px; font-weight: bold; padding: 0 4px; border-radius: 2px; }}
+  .spoof-badge.add {{ color: var(--yellow); background: rgba(255,214,0,0.15); }}
+  .spoof-badge.remove {{ color: var(--red); background: rgba(255,82,82,0.15); }}
+
+  /* ── Order book: Flow gauge (Section D) ─────────── */
+  .ob-flow-gauge {{ padding: 4px 6px; }}
+  .flow-gauge-bar {{ display: flex; height: 8px; border-radius: 3px; overflow: hidden; position: relative; background: var(--bg3); }}
+  .flow-gauge-bar .bid-bar {{ background: var(--green); transition: width 0.3s; }}
+  .flow-gauge-bar .ask-bar {{ background: var(--red); transition: width 0.3s; }}
+  .flow-gauge-center {{ position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #666; z-index: 1; }}
+  .flow-gauge-label {{ display: flex; justify-content: space-between; font-size: 10px; padding-top: 2px; }}
+  .flow-gauge-net {{ text-align: center; font-size: 10px; font-weight: bold; padding-top: 1px; }}
+
+  /* ── Delta pulse animation ───────────────────────── */
+  @keyframes delta-pulse {{ 0% {{ opacity: 1; text-shadow: 0 0 6px currentColor; }} 100% {{ opacity: 1; text-shadow: none; }} }}
+
+  /* ── Signal radar ────────────────────────────────── */
   .velocity-ind.spike {{ color: var(--red); font-weight: bold; }}
 
   /* ── Signal radar ────────────────────────────────── */
