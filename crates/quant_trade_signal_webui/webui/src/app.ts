@@ -10,6 +10,7 @@ import * as alerts from './alerts';
 import * as tickfeed from './tickfeed';
 import * as status from './status';
 import * as keyboard from './keyboard';
+import { initLocale, getLocale, toggleLocale, t } from './i18n';
 
 // ── Command sender ──────────────────────────────────────────────
 
@@ -119,8 +120,13 @@ function renderToolbar(s: AppStateSnapshot): void {
   if (voiceEl.className !== voiceCls) voiceEl.className = voiceCls;
   voiceEl.style.color = s.voice_on ? 'var(--yellow)' : '';
 
+  // Language toggle
+  const langEl = el('ind-lang');
+  const langText = t('lang.toggle');
+  if (langEl.textContent !== langText) langEl.textContent = langText;
+
   const pauseEl = el('ind-pause');
-  const pauseText = s.paused ? '\u25B6 Resume' : '\u23F8 Pause';
+  const pauseText = s.paused ? `\u25B6 ${t('resume')}` : `\u23F8 ${t('pause')}`;
   if (pauseEl.textContent !== pauseText) pauseEl.textContent = pauseText;
   const pauseCls = 'toolbar-btn' + (s.paused ? ' pause-active' : '');
   if (pauseEl.className !== pauseCls) pauseEl.className = pauseCls;
@@ -134,15 +140,53 @@ function setupToolbar(): void {
   el('ind-voice').addEventListener('click', () => sendCommand('toggle_voice'));
   el('ind-pause').addEventListener('click', () => sendCommand('toggle_pause'));
   el('btn-clear').addEventListener('click', () => sendCommand('clear_alerts'));
+
+  // Language toggle — toggles locale and forces full re-render
+  el('ind-lang').addEventListener('click', () => {
+    toggleLocale();
+    forceRerender();
+  });
+}
+
+/** Force a full re-render after locale change */
+function forceRerender(): void {
+  const s = store.curr;
+  if (!s) return;
+  tabs.render(s);
+  renderToolbar(s);
+  orderbook.render(s.tabs[s.active_tab]);
+  radar.render(s.tabs[s.active_tab]);
+  alerts.render(s.tabs[s.active_tab]);
+  tickfeed.render(s.tabs[s.active_tab]);
+  status.render(s.paused, s.total_events);
+  // Also update static panel headers
+  updatePanelHeaders();
+}
+
+/** Update static panel header text that doesn't come from WebSocket data */
+function updatePanelHeaders(): void {
+  // ob-title is already set by orderbook.render()
+  const srEl = document.getElementById('signal-radar-title');
+  if (srEl) srEl.textContent = `${t('signal.radar')}`;
+  const alEl = document.getElementById('alerts-title');
+  if (alEl) alEl.textContent = `${t('alerts')} `;
 }
 
 // ── Boot ────────────────────────────────────────────────────────
 
 function boot(): void {
+  initLocale();
   tabs.init(switchTab);
   setupToolbar();
   keyboard.init(sendCommand);
   connect();
+
+  // Set tooltips (static)
+  el('ind-auto').title = t('tip.auto');
+  el('ind-sound').title = t('tip.sound');
+  el('ind-voice').title = t('tip.voice');
+  el('ind-pause').title = t('tip.pause');
+  el('btn-clear').title = t('tip.clear');
 
   // Initial status
   status.setWsConnected(false);

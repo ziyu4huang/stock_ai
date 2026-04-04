@@ -204,6 +204,7 @@ fn main() {
   <button id="ind-voice" class="toolbar-btn on" title="Toggle voice alerts"></button>
   <button id="ind-pause" class="toolbar-btn" title="Pause/Resume feed"></button>
   <button id="btn-clear" class="toolbar-btn" title="Clear alerts">Clear</button>
+  <button id="ind-lang" class="toolbar-btn" title="Toggle language"></button>
 </div>
 
 <!-- Main 3-column -->
@@ -218,11 +219,11 @@ fn main() {
   <!-- Middle: Signal radar + alerts -->
   <div class="col-mid">
     <div class="panel" style="flex:55">
-      <div class="panel-header">SIGNAL RADAR</div>
+      <div class="panel-header" id="signal-radar-title">SIGNAL RADAR</div>
       <div class="panel-body" id="signal-radar"></div>
     </div>
     <div class="panel" style="flex:45">
-      <div class="panel-header">ALERTS <span id="alert-count" style="color:var(--yellow);margin-left:4px"></span></div>
+      <div class="panel-header"><span id="alerts-title">ALERTS</span> <span id="alert-count" style="color:var(--yellow);margin-left:4px"></span></div>
       <div class="panel-body" id="alerts"></div>
     </div>
   </div>
@@ -261,6 +262,7 @@ fn main() {
     println!("cargo:rerun-if-changed=webui/src/tickfeed.ts");
     println!("cargo:rerun-if-changed=webui/src/status.ts");
     println!("cargo:rerun-if-changed=webui/src/keyboard.ts");
+    println!("cargo:rerun-if-changed=webui/src/i18n.ts");
     println!("cargo:rerun-if-changed=webui/package.json");
 }
 

@@ -2,16 +2,17 @@
 
 import type { TabSnapshot, SuspiciousLevel } from './types';
 import { el } from './dom';
+import { t } from './i18n';
 
 export function render(v: TabSnapshot): void {
   const titleEl = el('ob-title');
-  const newTitle = `\u4E94\u6A94 ${v.symbol} ${v.name}`;
+  const newTitle = `${t('order.book')} ${t('five.levels')} ${v.symbol} ${v.name}`;
   if (titleEl.textContent !== newTitle) titleEl.textContent = newTitle;
 
   const obEl = el('order-book');
   if (!v.order_book) {
     if (obEl.children.length === 0 || !obEl.querySelector('.ob-waiting')) {
-      obEl.innerHTML = '<div class="ob-waiting" style="color:var(--dim);padding:12px;text-align:center">Waiting for order book...</div>';
+      obEl.innerHTML = `<div class="ob-waiting" style="color:var(--dim);padding:12px;text-align:center">${t('waiting.ob')}</div>`;
     }
     return;
   }
@@ -31,11 +32,11 @@ export function render(v: TabSnapshot): void {
     const isSuspicious = suspiciousSet.has(`ask-${i}`);
     const suspClass = isSuspicious ? ' suspicious' : '';
     const suspIcon = getSuspiciousIcon(suspiciousSet, 'ask', i);
-    html += `<div class="ob-row ask${suspClass}"><span class="ob-label">${suspIcon}${l.label}</span><span class="ob-price">${l.price.toFixed(2)}</span><span class="ob-lots">${l.lots}\u5F35</span>${formatDelta(d)}<div class="ob-bar" style="width:${pct}%"></div></div>`;
+    html += `<div class="ob-row ask${suspClass}"><span class="ob-label">${suspIcon}${l.label}</span><span class="ob-price">${l.price.toFixed(2)}</span><span class="ob-lots">${l.lots}${t('lot')}</span>${formatDelta(d)}<div class="ob-bar" style="width:${pct}%"></div></div>`;
   }
 
   // Spread row
-  html += `<div class="spread-row">${ob.last_price.toFixed(2)} ${ob.last_side === 'Buy' ? '\u25B2' : '\u25BC'}  spread ${ob.spread.toFixed(2)}</div>`;
+  html += `<div class="spread-row">${ob.last_price.toFixed(2)} ${ob.last_side === 'Buy' ? '\u25B2' : '\u25BC'}  ${t('spread')} ${ob.spread.toFixed(2)}</div>`;
 
   // Bids
   for (let i = 0; i < ob.bids.length; i++) {
@@ -45,11 +46,11 @@ export function render(v: TabSnapshot): void {
     const isSuspicious = suspiciousSet.has(`bid-${i}`);
     const suspClass = isSuspicious ? ' suspicious' : '';
     const suspIcon = getSuspiciousIcon(suspiciousSet, 'bid', i);
-    html += `<div class="ob-row bid${suspClass}"><span class="ob-label">${suspIcon}${l.label}</span><span class="ob-price">${l.price.toFixed(2)}</span><span class="ob-lots">${l.lots}\u5F35</span>${formatDelta(d)}<div class="ob-bar" style="width:${pct}%"></div></div>`;
+    html += `<div class="ob-row bid${suspClass}"><span class="ob-label">${suspIcon}${l.label}</span><span class="ob-price">${l.price.toFixed(2)}</span><span class="ob-lots">${l.lots}${t('lot')}</span>${formatDelta(d)}<div class="ob-bar" style="width:${pct}%"></div></div>`;
   }
 
   // Pressure bar
-  html += `<div class="pressure-row"><span style="color:var(--green)">\u8CB7\u58D3 ${ob.bid_pressure_pct.toFixed(0)}%</span> / <span style="color:var(--red)">\u8CE3\u58D3 ${ob.ask_pressure_pct.toFixed(0)}%</span></div>`;
+  html += `<div class="pressure-row"><span style="color:var(--green)">${t('buy.pressure')} ${ob.bid_pressure_pct.toFixed(0)}%</span> / <span style="color:var(--red)">${t('sell.pressure')} ${ob.ask_pressure_pct.toFixed(0)}%</span></div>`;
   html += `<div class="pressure-bar"><div class="bid-bar" style="width:${ob.bid_pressure_pct.toFixed(0)}%"></div><div class="ask-bar" style="width:${ob.ask_pressure_pct.toFixed(0)}%"></div></div>`;
 
   // Cumulative delta bar (2-min net flow)
@@ -59,7 +60,7 @@ export function render(v: TabSnapshot): void {
   if (cumTotal > 0) {
     const bidPct = (cumBid / (cumBid + Math.abs(cumAsk) + 1) * 100).toFixed(0);
     const askPct = (Math.abs(cumAsk) / (cumBid + Math.abs(cumAsk) + 1) * 100).toFixed(0);
-    html += `<div class="cum-delta-label"><span style="color:var(--green)">\u0394+${cumBid}</span> <span style="color:var(--dim)">2min flow</span> <span style="color:var(--red)">${cumAsk}\u0394</span></div>`;
+    html += `<div class="cum-delta-label"><span style="color:var(--green)">\u0394+${cumBid}</span> <span style="color:var(--dim)">${t('flow.2min')}</span> <span style="color:var(--red)">${cumAsk}\u0394</span></div>`;
     html += `<div class="pressure-bar cum-bar"><div class="bid-bar" style="width:${bidPct}%"></div><div class="ask-bar" style="width:${askPct}%"></div></div>`;
   }
 

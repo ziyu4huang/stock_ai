@@ -2,6 +2,7 @@
 
 import type { TabSnapshot } from './types';
 import { el } from './dom';
+import { t } from './i18n';
 
 export function render(v: TabSnapshot): void {
   const alertsEl = el('alerts');
@@ -10,7 +11,7 @@ export function render(v: TabSnapshot): void {
   if (countEl.textContent !== countText) countEl.textContent = countText;
 
   if (v.alerts.length === 0) {
-    const waitText = 'Watching for whale activity...';
+    const waitText = t('watching');
     if (alertsEl.children.length === 0 || !alertsEl.querySelector('.alert-waiting')) {
       alertsEl.innerHTML = `<div class="alert-waiting" style="color:var(--dim);padding:8px;text-align:center">${waitText}</div>`;
     }
