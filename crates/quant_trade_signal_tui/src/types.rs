@@ -1,10 +1,10 @@
 use chrono::{DateTime, Local};
-// re-export DateTime for SoundInfo
 use ratatui::style::Color;
+use serde::{Deserialize, Serialize};
 
 // ── Trade side ────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TradeSide {
     Buy,
     Sell,
@@ -17,7 +17,7 @@ impl TradeSide {
 
 // ── Position direction ────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PositionDir { Long, Short }
 impl PositionDir {
     pub fn label(&self) -> &'static str { match self { PositionDir::Long => "做多 LONG", PositionDir::Short => "做空 SHORT" } }
@@ -26,7 +26,7 @@ impl PositionDir {
 
 // ── Raw tick ──────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Tick {
     pub symbol: String,
     pub timestamp: DateTime<Local>,
@@ -42,10 +42,10 @@ impl Tick {
 
 // ── Whale trade ───────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WhaleTrade { pub tick: Tick, pub rank: WhaleRank }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WhaleRank { Medium, Large, Mega }
 impl WhaleRank {
     pub fn from_amount(a: f64) -> Self {
@@ -63,7 +63,7 @@ impl WhaleRank {
 
 // ── Ignition event ────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct IgnitionEvent {
     pub symbol: String,
     pub timestamp: DateTime<Local>,
@@ -75,7 +75,7 @@ pub struct IgnitionEvent {
 
 // ── Market state (6-state, symmetric long/short) ──────────────────────────────
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum MarketState {
     LongAccum,     // 低位吸籌 → 做多準備
     LongIgnition,  // 多頭點火 → 建多倉
@@ -126,13 +126,13 @@ impl MarketState {
 
 // ── Order book (五檔) ─────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct OrderLevel {
     pub price: f64,
     pub lots: u64, // 張 (1 lot = 1000 shares)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct OrderBook {
     pub symbol: String,
     pub timestamp: DateTime<Local>,
@@ -188,18 +188,19 @@ pub fn tick_size(price: f64) -> f64 {
 // ── Composite score & action advice ─────────────────────────────────────────
 
 /// Composite signal score: -100 (strong bear) to +100 (strong bull).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CompositeScore {
     pub value: i32,
     pub whale_buy_pts: i32,
     pub whale_sell_pts: i32,
     pub ignition_pts: i32,
     pub pressure_pts: i32,
+    pub hmm_pts: i32,
 }
 
 impl CompositeScore {
     pub fn new() -> Self {
-        Self { value: 0, whale_buy_pts: 0, whale_sell_pts: 0, ignition_pts: 0, pressure_pts: 0 }
+        Self { value: 0, whale_buy_pts: 0, whale_sell_pts: 0, ignition_pts: 0, pressure_pts: 0, hmm_pts: 0 }
     }
 
     /// Clamp to [-100, +100].
@@ -209,7 +210,7 @@ impl CompositeScore {
 }
 
 /// Action recommendation derived from composite score + market state.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ActionAdvice {
     FollowBull,      // 跟多 — whale bull + ignition
     WatchBull,       // 觀多 — whale bull accumulating
@@ -242,8 +243,76 @@ impl ActionAdvice {
     }
 }
 
+// ── HMM state (4-state GaussianHMM confirmation layer) ────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum HmmState {
+    Accumulation,  // 吸籌 — quiet building phase
+    Ignition,      // 點火 — active directional move
+    Distribution,  // 出貨 — aggressive selling
+    Noise,         // 雜訊 — no signal
+}
+
+impl HmmState {
+    pub fn label(&self) -> &'static str {
+        match self {
+            HmmState::Accumulation => "H-ACCUM",
+            HmmState::Ignition => "H-IGNITE",
+            HmmState::Distribution => "H-DIST",
+            HmmState::Noise => "H-NOISE",
+        }
+    }
+    pub fn icon(&self) -> &'static str {
+        match self {
+            HmmState::Accumulation => "📊",
+            HmmState::Ignition => "⚡",
+            HmmState::Distribution => "📤",
+            HmmState::Noise => "〰",
+        }
+    }
+    pub fn color(&self) -> Color {
+        match self {
+            HmmState::Accumulation => Color::Cyan,
+            HmmState::Ignition => Color::LightGreen,
+            HmmState::Distribution => Color::LightRed,
+            HmmState::Noise => Color::DarkGray,
+        }
+    }
+
+    /// Check if this HMM state agrees directionally with a rule-based MarketState.
+    pub fn agrees_with(&self, market: &MarketState) -> bool {
+        match (self, market) {
+            (HmmState::Accumulation, MarketState::LongAccum) => true,
+            (HmmState::Ignition, MarketState::LongIgnition) => true,
+            (HmmState::Ignition, MarketState::ShortIgnition) => true,
+            (HmmState::Distribution, MarketState::ShortDistrib) => true,
+            (HmmState::Noise, MarketState::Noise) => true,
+            (HmmState::Noise, MarketState::Neutral) => true,
+            _ => false,
+        }
+    }
+}
+
+/// HMM confirmation result.
+#[derive(Debug, Clone, Serialize)]
+pub struct HmmConfirmation {
+    pub hmm_state: HmmState,
+    pub agrees_with_rules: bool,
+    pub obs_count: usize,
+}
+
+impl HmmConfirmation {
+    pub fn new(hmm_state: HmmState, market_state: &MarketState, obs_count: usize) -> Self {
+        Self {
+            agrees_with_rules: hmm_state.agrees_with(market_state),
+            hmm_state,
+            obs_count,
+        }
+    }
+}
+
 /// Last sound alert info for UI display.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SoundInfo {
     pub label: String,
     pub timestamp: DateTime<Local>,

@@ -1,6 +1,6 @@
 use crate::app::AppState;
 use crate::stock_view::StockView;
-use crate::types::PositionDir;
+use crate::types::{HmmState, PositionDir};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -315,6 +315,23 @@ fn render_signal_radar(f: &mut Frame, view: &StockView, area: Rect) {
         Span::styled(state.icon(), Style::default().fg(state.color())),
         Span::raw(" "),
         Span::styled(state.label(), Style::default().fg(state.color()).add_modifier(Modifier::BOLD)),
+    ]));
+
+    // ── HMM state ────────────────────────────────────────────────────────
+    let hmm = &view.hmm_state;
+    let agrees = view.hmm_confirmation.agrees_with_rules;
+    lines.push(Line::from(vec![
+        Span::raw("  "),
+        Span::styled("HMM", Style::default().fg(Color::DarkGray)),
+        Span::raw(" "),
+        Span::styled(hmm.icon(), Style::default().fg(hmm.color())),
+        Span::raw(" "),
+        Span::styled(hmm.label(), Style::default().fg(hmm.color())),
+        Span::raw("  "),
+        Span::styled(
+            if agrees { "✓ AGREE" } else { "✗ DIV" },
+            Style::default().fg(if agrees { Color::Green } else { Color::Yellow }),
+        ),
     ]));
 
     lines.push(Line::from(""));

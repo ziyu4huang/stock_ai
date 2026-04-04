@@ -1,8 +1,9 @@
 use crate::detector::{IgnitionDetector, WhaleDetector};
+use crate::hmm::{HmmModel, HmmObservationBuilder};
 use crate::state_machine::StockStateTracker;
 use crate::types::{
-    ActionAdvice, CompositeScore, IgnitionEvent, MarketState, OrderBook, PositionDir,
-    SoundInfo, Tick, TradeSide, WhaleTrade, WhaleRank,
+    ActionAdvice, CompositeScore, HmmConfirmation, HmmState, IgnitionEvent, MarketState,
+    OrderBook, PositionDir, SoundInfo, Tick, TradeSide, WhaleTrade, WhaleRank,
 };
 use chrono::{DateTime, Local};
 use ratatui::style::Color;
@@ -101,14 +102,21 @@ pub struct StockView {
     pub action: ActionAdvice,
     /// Last sound alert info for UI display
     pub last_sound: Option<SoundInfo>,
+    /// HMM confirmation layer
+    pub hmm_state: HmmState,
+    pub hmm_confirmation: HmmConfirmation,
 
     state_tracker: StockStateTracker,
     ignition_detector: IgnitionDetector,
+    hmm_model: HmmModel,
+    hmm_builder: HmmObservationBuilder,
     pub whale_threshold: f64,
 }
 
 impl StockView {
     pub fn new(symbol: &str, name: &str, base_price: f64, whale_threshold: f64) -> Self {
+        let hmm_model = HmmModel::default_tuned();
+        let initial_state = HmmState::Noise;
         Self {
             symbol: symbol.to_string(),
             name: name.to_string(),
@@ -122,8 +130,12 @@ impl StockView {
             composite: CompositeScore::new(),
             action: ActionAdvice::StandAside,
             last_sound: None,
+            hmm_state: initial_state.clone(),
+            hmm_confirmation: HmmConfirmation::new(initial_state, &MarketState::Noise, 0),
             state_tracker: StockStateTracker::new(),
             ignition_detector: IgnitionDetector::default(),
+            hmm_model,
+            hmm_builder: HmmObservationBuilder::new(),
             whale_threshold,
         }
     }
@@ -144,6 +156,26 @@ impl StockView {
         }
 
         self.state = self.state_tracker.update(&tick, is_whale);
+
+        // HMM observation update (runs every BATCH_INTERVAL ticks)
+        let is_whale_buy = is_whale && tick.side == TradeSide::Buy;
+        let is_whale_sell = is_whale && tick.side == TradeSide::Sell;
+        if let Some(_obs) = self.hmm_builder.push_tick(tick.price, tick.shares as f64, is_whale_buy, is_whale_sell) {
+            let history = self.hmm_builder.obs_history();
+            if history.len() >= 2 {
+                let path = self.hmm_model.viterbi(&history.iter().copied().collect::<Vec<_>>());
+                if let Some(&last_state) = path.last() {
+                    let hmm_state = match last_state {
+                        0 => HmmState::Accumulation,
+                        1 => HmmState::Ignition,
+                        2 => HmmState::Distribution,
+                        _ => HmmState::Noise,
+                    };
+                    self.hmm_state = hmm_state.clone();
+                    self.hmm_confirmation = HmmConfirmation::new(hmm_state, &self.state, history.len());
+                }
+            }
+        }
 
         let mut ignition_result = None;
 
@@ -208,6 +240,10 @@ impl StockView {
             }
         }
 
+        // HMM confirmation bonus/penalty
+        self.composite.hmm_pts = self.compute_hmm_pts();
+        score += self.composite.hmm_pts;
+
         self.composite.value = CompositeScore::clamp(score);
 
         // Derive action advice
@@ -216,14 +252,37 @@ impl StockView {
 
     fn derive_action(&self) -> ActionAdvice {
         let s = self.composite.value;
+        let hmm_boost = if self.hmm_confirmation.agrees_with_rules { 10 } else { 0 };
+
         match self.state {
-            MarketState::LongIgnition if s >= 50 => ActionAdvice::FollowBull,
-            MarketState::LongAccum if s >= 20 => ActionAdvice::WatchBull,
-            MarketState::ShortIgnition if s <= -50 => ActionAdvice::FollowBear,
-            MarketState::ShortDistrib if s <= -20 => ActionAdvice::WatchBear,
+            MarketState::LongIgnition if s >= 50 - hmm_boost => ActionAdvice::FollowBull,
+            MarketState::LongAccum if s >= 20 - hmm_boost => ActionAdvice::WatchBull,
+            MarketState::ShortIgnition if s <= -50 + hmm_boost => ActionAdvice::FollowBear,
+            MarketState::ShortDistrib if s <= -20 + hmm_boost => ActionAdvice::WatchBear,
             _ if s >= 60 => ActionAdvice::WatchBull,
             _ if s <= -60 => ActionAdvice::WatchBear,
+            // HMM ignition override: promote if HMM strongly agrees
+            _ if self.hmm_state == HmmState::Ignition && s >= 40 => ActionAdvice::FollowBull,
+            _ if self.hmm_state == HmmState::Distribution && s <= -40 => ActionAdvice::FollowBear,
             _ => ActionAdvice::StandAside,
+        }
+    }
+
+    /// Compute HMM confirmation points: ±15 max.
+    fn compute_hmm_pts(&self) -> i32 {
+        if self.hmm_confirmation.agrees_with_rules {
+            match self.hmm_state {
+                HmmState::Ignition => 15,
+                HmmState::Accumulation => 8,
+                HmmState::Distribution => -15,
+                HmmState::Noise => -5,
+            }
+        } else {
+            match self.hmm_state {
+                HmmState::Ignition => 5,
+                HmmState::Noise => -10,
+                _ => 0,
+            }
         }
     }
 

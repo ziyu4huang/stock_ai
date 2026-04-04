@@ -12,3 +12,13 @@ ratatui = "0.29"
 crossterm = "0.28"
 chrono = { workspace = true }
 rand = "0.8"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+tower-http = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+shioaji-mock = { path = "../shioaji-mock" }
+
+[dev-dependencies]
+insta = "1"

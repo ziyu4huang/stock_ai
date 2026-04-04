@@ -5,6 +5,7 @@ members = [
     "crates/stock-server",
     "crates/quant_trade_cli",
     "crates/quant_trade_signal_tui",
+    "crates/shioaji-mock",
 ]
 
 [workspace.package]
@@ -15,6 +16,8 @@ version = "0.1.0"
 reqwest = { version = "0.12", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 tokio = { version = "1", features = ["full"] }
+axum = { version = "0.7", features = ["ws"] }
+tower-http = { version = "0.5", features = ["cors"] }
