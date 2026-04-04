@@ -84,6 +84,8 @@ _(empty - add notes here as patterns emerge)_
 - [05-risks-and-principles](docs/design/ai-day-trading-tw/05-risks-and-principles.md) - Risk management, regulations, pitfalls, daily checklist
 - [06-system-architecture](docs/design/ai-day-trading-tw/06-system-architecture.md) - System design, component architecture, project structure, implementation phases
 - [08-large-trade-tracker](docs/design/ai-day-trading-tw/08-large-trade-tracker.md) - 大單追蹤偵測器, HMM 意圖分類, 點火序列偵測, Tick Streamer
+- [09-day-trading-scanner](docs/design/ai-day-trading-tw/09-day-trading-scanner.md) - 日內交易掃描器, 買賣信號偵測, 複合評分, 歷史回放
+- [10-geo-whale-hunting](docs/design/ai-day-trading-tw/10-geo-whale-hunting.md) - 地緣大戶狙擊, SurrealDB 籌碼地理, 3-Sigma DSP 脈衝, Welford 演算法
 
 ### presentations/
 - [phase1-goal-set](docs/presentation/phase1-goal-set/slides.md) - Slidev deck: architecture, goals, roadmap (14 slides)

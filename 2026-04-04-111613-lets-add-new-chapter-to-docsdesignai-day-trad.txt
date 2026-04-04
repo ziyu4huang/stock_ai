@@ -1,0 +1,160 @@
+ ▐▛███▜▌   Claude Code v2.1.92
+▝▜█████▛▘  glm-5.1 · API Usage Billing
+  ▘▘ ▝▝    ~/proj/stock_ai
+
+❯ let's add new chapter to @docs/design/ai-day-trading-tw/   base on below ,    
+and see if you can extend more detail and more easiy to understand Taiwan       
+Market in zh_TW                                                                 
+為了讓你完整發揮 **M5 Max (128GB RAM)** 的硬體實力，並結合 **Shioaji API** 與   
+**Rust** 進行「地緣大戶狙擊」，我將這套系統拆解為五大核心模組。這不僅是一套程式 
+，更是一個針對台灣股市特性的「數位偵查工作流」。                                
+                                                                                
+---                                                                             
+                                                                                
+## 🏗️ 第一階段：建立「地緣籌碼」知識庫 (SurrealDB)                              
+                                                                                
+大戶分析的第一步不是即時資料，而是**基礎資料的關聯**。利用 SurrealDB            
+的圖形資料庫特性，建立「公司—分點」的地理關係。                                 
+                                                                                
+### 1. 資料庫建模                                                               
+* **Company Node:** 存儲公司代碼、名稱、總部地址、經緯度。                      
+* **Broker Node:** 存儲全台所有券商分點代碼、名稱、地址、經緯度。               
+* **Edge (NEARBY):** 當 Broker 與 Company 距離小於 5km 時，建立連線。           
+                                                                                
+### 2. 定義「關鍵分點」清單                                                     
+* **地緣大戶：** 總部附近的券商。                                               
+* **隔日沖大戶：**                                                              
+標記如「凱基-台北」、「富邦-建國」、「美林」等已知頻率高的分點。                
+* **波段大戶：**                                                                
+標記過去一年在特定股票勝率極高的分點（例如：買在起漲點的「元大-內湖」）。       
+                                                                                
+---                                                                             
+                                                                                
+## ⚡ 第二階段：Rust 高效能分析引擎 (M5 Max 硬體加速)                           
+                                                                                
+利用 **Apple Accelerate (vDSP)** 與 **Welford 演算法**，在背景監控全市場 Tick。 
+                                                                                
+### 1. 滑動視窗 3-Sigma 監控器                                                  
+這不需要 ML 訓練，它是一個硬體級的濾波器，專門過濾「散戶噪音」。                
+                                                                                
+                                                                                
+                                                                                
+* **數學閾值設定：**                                                            
+    * **$\mu$ (Mean):** 最近 200 筆成交量的平均。                               
+    * **$3\sigma$ (Spike):** 當單筆成交量 > $\mu + 3\sigma$，標記為 **Potential 
+ Dahu (潛在大戶)**。                                                            
+* **硬體優勢：** 在 M5 Max 上，這部分的運算會被編譯器優化為 **SIMD              
+指令**，即便同時監控 1700 檔股票，CPU 負擔也極低。                              
+                                                                                
+---                                                                             
+                                                                                
+## 🕵️ 第三階段：地緣狙擊邏輯 (The Aiming Logic)                                 
+                                                                                
+當 Rust 引擎偵測到 **3-Sigma Spike** 時，立即執行以下「聯合法醫鑑定」：         
+                                                                                
+1.  **分點身份識別：**                                                          
+    * 從 Shioaji 取得該筆成交的分點                                             
+ID（這在盤後明細才最精準，但在盤中可以透過「盤中大單分析」進行推估）。          
+    * *註：Shioaji                                                              
+盤中不直接提供成交分點，但你可以觀察「五檔掛單」中異常大的委託量變化。*         
+2.  **能量脈衝驗證 (DSP Pulse)：**                                              
+    * 計算 **能量包絡線 (Energy Envelope)**。如果是單發脈衝（一筆就沒了），可能 
+是散戶點錯；如果是「連續階梯狀」脈衝，則是**大戶正在急拉**。                    
+3.  **地緣加權：**                                                              
+    * 如果該股票屬於「竹科族群」，且目前盤中五檔力道（Order Book                
+Imbalance）偏向買方，則將 Aiming 等級提升至 **Critical**。                      
+                                                                                
+---                                                                             
+                                                                                
+## 🖥️ 第四階段：SawClaw 工作環境整合 (M5 Max 128GB)                             
+                                                                                
+既然你打算買 M5 Max，你的 **SawClaw (VM)** 環境可以配置得極度奢華：             
+                                                                                
+* **記憶體分配：** 給予 Rust 分析引擎 32GB RAM，將全台股當日的所有 Tick         
+直接快取在記憶體中（避免 I/O 延遲）。                                           
+* **AI 助手 (Claude Code)：** 讓 AI 自動讀取 Rust                               
+丟出來的「大戶日誌」，並根據歷史分點行為進行即時總結。                          
+    * *範例指令：* 「分析 2330 剛剛那波 5000                                    
+張的攻擊，是否符合過去地緣大戶進場的特徵？」                                    
+                                                                                
+---                                                                             
+                                                                                
+## 📈 第五階段：主觀交易執行 (Subjective Execution)                             
+                                                                                
+這是你扣下板機的最後確認清單：                                                  
+                                                                                
+| 檢查項目 | 理想狀況 (Fire!) | 警告 (Hold) |                                   
+| :--- | :--- | :--- |                                                          
+| **大盤環境 (TAIEX)** | 指數在 5 分鐘均線上方 | 大盤正在跳水 |                 
+| **大戶能量 (DSP)** | 出現連續上升沿 (Rising Edge) | 只有單筆大單，後續無力 |  
+| **地緣關係** | 關鍵分點長期吃貨中 | 該分點是著名的「隔日沖」 |                
+| **心理關卡** | 突破今日高點或整數關卡 | 接近 10% 漲停板但未鎖死 |             
+                                                                                
+---                                                                             
+                                                                                
+## 🛠️ 具體行動指南 (Action Plan)                                                
+                                                                                
+1.  **安裝 Rust 環境：** 確保安裝了 `Accelerate` 綁定，發揮 M5 的 AMX 實力。    
+2.  **開發地緣抓取腳本：**                                                      
+寫一個簡單的爬蟲，抓取證交所的「公司基本資料」與「券商地址」，存入              
+**SurrealDB**。                                                                 
+3.  **實作 3-Sigma 濾波器：** 使用我之前提供的 Rust                             
+Prototype，將其擴展為多執行緒版本。                                             
+4.  **建立通知系統：** 串接 macOS                                               
+的系統通知，確保大戶出現時，你的螢幕右上方會彈出警示。                          
+                                                                                
+### 💡 核心優勢總結                                                             
+這套系統讓你不再「追高殺低」，而是**在大戶剛開始「推擠價格」的那幾秒鐘內**，就  
+透過數學脈衝偵測發現他們，並結合地緣資料確認這不是散戶的隨機行為。              
+                                                                                
+**由於你擁有 RTL 硬體背景，這套「信號處理 +                                     
+硬體加速」的思維將是你超越一般金融背景交易者的最大利器。**                      
+                                                                                
+需要我為你細化「地緣分點在 SurrealDB 中的 Graph 查詢語法 (CQL)」嗎？            
+
+⏺ 让我先阅读现有章节，以理解其风格并避免内容重叠。
+
+  Read 3 files (ctrl+o to expand)
+
+⏺ 現在讓我檢查一下是否有第07章的檔案（因為它已在 README 中列出）。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 好的。07 章節列在 README 中，但不存在。新的章節將是 09。我現在對現有風格、術語
+  和內容涵蓋範圍有了清晰的了解。讓我來撰寫這個全面的章節。
+  ⎿  Error writing file
+  ⎿  Error writing file
+  ⎿  Error writing file
+  ⎿  Error writing file
+
+⏺ 我看到 CLAUDE.md 已更新，引用了
+  09-day-trading-scanner.md。我來將章節寫入那裡，但首先讓我重新審視您的需求 —
+  您想要一個基於您所提供的「地緣大戶狙擊」內容的新章節，並擴充更多關於台灣市場的
+  細節。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 現在我有了足夠的上下文。讓我來撰寫全面的第九章。
+  ⎿  Error writing file
+  ⎿  Error writing file
+  ⎿  Error writing file
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ continue                                                                      
+  ⎿  Error writing file
+  ⎿  Error writing file
+
+⏺ Let me try with explicit parameters:
+
+  Listed 1 directory (ctrl+o to expand)
+
+⏺ 09 already exists. Let me read it first, then overwrite with the new content.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ OK, 09 is about Day Trading Scanner already. The new "地緣大戶狙擊" chapter
+  should be 10. Let me write it now.
+  ⎿  Error writing file
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ why it take so long to finish ?                                               

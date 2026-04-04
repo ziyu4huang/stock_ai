@@ -1,0 +1,14 @@
+[package]
+name = "quant_trade_signal_tui"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "quant_trade_signal_tui"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+chrono = { workspace = true }
+rand = "0.8"

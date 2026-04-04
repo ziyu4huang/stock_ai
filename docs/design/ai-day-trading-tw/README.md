@@ -20,6 +20,8 @@
 | 06 | [06-system-architecture.md](06-system-architecture.md) | 系統架構設計、專案結構、實作階段 |
 | 07 | [07-tooling-guide-shioaji-lgmb-vectorbt.md](07-tooling-guide-shioaji-lgmb-vectorbt.md) | **Shioaji + LightGBM + vectorbt 實作指南** |
 | 08 | [08-large-trade-tracker.md](08-large-trade-tracker.md) | **大單追蹤偵測器：HMM 整合與點火偵測** |
+| 09 | [09-day-trading-scanner.md](09-day-trading-scanner.md) | **日內交易掃描器：買賣信號偵測與回放** |
+| 10 | [10-geo-whale-hunting.md](10-geo-whale-hunting.md) | **地緣大戶狙擊：籌碼地理、DSP 脈衝、SurrealDB** |
 
 ## 快速參考
 
@@ -54,3 +56,5 @@
 5. 查看 `04-data-and-infrastructure.md` 了解工具鏈
 6. 內化 `05-risks-and-principles.md` 的風險管理原則
 7. 用 `06-system-architecture.md` 規劃系統架構
+8. 查看 `09-day-trading-scanner.md` 了解日內交易掃描器
+9. 研讀 `10-geo-whale-hunting.md` 掌握地緣大戶狙擊系統

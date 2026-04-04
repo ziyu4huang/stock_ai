@@ -12,6 +12,21 @@ use tower_http::cors::CorsLayer;
 
 use stock_core::*;
 
+// ── helper: cached_fetch wrapper ────────────────────────────────────────────
+
+async fn cached_fetch(st: &Arc<AppState>, symbol: &str, days: u64, interval: &str) -> Vec<Bar> {
+    let backend = st.fetch_backend.lock().unwrap().clone();
+    match fetch_yahoo(&st.client, symbol, days, interval).await {
+        Ok(b) if !b.is_empty() => return b,
+        _ => {}
+    }
+    if backend != "yahoo-only" {
+        fetch_av(&st.client, symbol, &st.av_key).await.unwrap_or_default()
+    } else {
+        vec![]
+    }
+}
+
 // ── error type ────────────────────────────────────────────────────────────
 
 struct AppError(StatusCode, String);
@@ -403,6 +418,74 @@ async fn api_scan(State(st): State<Arc<AppState>>) -> Json<serde_json::Value> {
     Json(serde_json::json!({"scanned": results}))
 }
 
+// ── Day Trading Scanner ────────────────────────────────────────────────────
+
+async fn api_scan_signals(State(st): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    let items: Vec<WatchlistItem> = {
+        let db = st.db.lock().unwrap();
+        watchlist_get_all(&db)
+    };
+    if items.is_empty() {
+        return Json(serde_json::json!({"error": "watchlist is empty"}));
+    }
+
+    let mut handles = Vec::new();
+    for w in &items {
+        let sym = w.symbol.clone();
+        let name = w.name.clone();
+        let st2 = st.clone();
+        handles.push(tokio::spawn(async move {
+            let bars = cached_fetch(&st2, &sym, 365, "1d").await;
+            if bars.is_empty() { return None; }
+            let b = bars;
+            let last_price = b.last().map(|b| b.close).unwrap_or(0.0);
+            let analysis = tokio::task::spawn_blocking(move || {
+                let mut a = analyze_daytrade(&b);
+                a.symbol = sym.clone();
+                a
+            }).await.ok()?;
+            let top_signals: Vec<String> = analysis.signals.last()
+                .map(|bs| bs.signals.iter().take(3).map(|s| s.kind.name().to_string()).collect())
+                .unwrap_or_default();
+            Some(ScanResult {
+                symbol: analysis.symbol,
+                name,
+                last_price,
+                score: analysis.latest_score,
+                direction: analysis.latest_direction,
+                top_signals,
+            })
+        }));
+    }
+
+    let mut results = Vec::new();
+    for h in handles {
+        if let Ok(Some(r)) = h.await {
+            results.push(r);
+        }
+    }
+    results.sort_by(|a, b| b.score.cmp(&a.score));
+    Json(serde_json::json!({"results": results}))
+}
+
+async fn api_daytrade(
+    Path(symbol): Path<String>,
+    State(st): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let bars = cached_fetch(&st, &symbol, 365, "1d").await;
+    if bars.is_empty() {
+        return Err(AppError::not_found(format!("no data for {symbol}")));
+    }
+    let sym = symbol.clone();
+    let analysis = tokio::task::spawn_blocking(move || {
+        let mut a = analyze_daytrade(&bars);
+        a.symbol = sym;
+        a
+    }).await.map_err(|e| AppError::internal(format!("spawn: {e}")))?;
+    Ok(Json(serde_json::to_value(&analysis)
+        .unwrap_or_else(|_| serde_json::json!({"error": "serialization failed"}))))
+}
+
 // ── config ──────────────────────────────────────────────────────────────────
 
 async fn get_config(State(st): State<Arc<AppState>>) -> Json<serde_json::Value> {
@@ -474,6 +557,9 @@ async fn main() {
         // ── config ──
         .route("/api/config", get(get_config))
         .route("/api/config", post(put_config))
+        // ── day trading scanner ──
+        .route("/api/scan-signals", get(api_scan_signals))
+        .route("/api/daytrade/:symbol", get(api_daytrade))
         // ── 1-minute kline ──
         .route("/api/kline1m/:symbol", get(api_kline1m_get))
         .route("/api/fetch1m/:symbol", post(api_fetch1m))

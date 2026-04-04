@@ -10,6 +10,7 @@ let currentSymbol = "";
 let currentData: any[] = [];
 let currentDays = 7;
 const activeIndicators = new Set<string>(); // "rsi" | "macd" | "boll"
+let currentSignals: any[] = [];
 
 // 1m live view
 let viewMode: "daily" | "1m" = "daily";
@@ -161,7 +162,7 @@ function renderChart(bars: any[]) {
     { type: "value", gridIndex: 1, splitLine: { show: false }, axisLabel: { show: false } },
   ];
 
-  // Base series
+  // Base series (no annotations — signals only on 1D day-trading mode)
   const series: any[] = [
     {
       name: "K线", type: "candlestick", xAxisIndex: 0, yAxisIndex: 0,
@@ -306,6 +307,7 @@ async function loadSignals(symbol: string) {
     const resp = await fetch(`/api/signals/${encodeURIComponent(symbol)}`);
     const data = await resp.json();
     const signals = data.signals ?? [];
+    currentSignals = signals;
     const el = document.getElementById("signal-list")!;
     if (signals.length === 0) {
       el.innerHTML = '<div style="color:#445;font-size:11px">No signals yet</div>';
@@ -329,6 +331,34 @@ function fmtVol(v: number): string {
   if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + "M";
   if (v >= 1_000) return (v / 1_000).toFixed(1) + "K";
   return v.toString();
+}
+
+// ── series-level indicator helpers (for 1m day-trading signals) ───────────
+function calcRSI(closes: number[], period = 14): (number | null)[] {
+  const result: (number | null)[] = new Array(closes.length).fill(null);
+  if (closes.length <= period) return result;
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d > 0) gains += d; else losses -= d;
+  }
+  let avgGain = gains / period, avgLoss = losses / period;
+  result[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    avgGain = (avgGain * (period - 1) + Math.max(d, 0)) / period;
+    avgLoss = (avgLoss * (period - 1) + Math.max(-d, 0)) / period;
+    result[i] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  }
+  return result;
+}
+
+function calcMACD(closes: number[]) {
+  const e12 = calcEMA(closes, 12), e26 = calcEMA(closes, 26);
+  const ml: number[] = e12.map((v: number, i: number) => v - e26[i]);
+  const sl = calcEMA(ml, 9);
+  const hist = ml.map((v: number, i: number) => v - sl[i]);
+  return { macd: ml, signal: sl, hist };
 }
 
 // ── 1m live view ─────────────────────────────────────────────────────────
@@ -375,14 +405,44 @@ function renderChart1m(bars: any[], hmm: any) {
     }
   }
 
+  // ── Day-trading buy/sell signal detection on 1-min bars ───────────────────
+  const closes1m = bars.map((b: any) => b.close);
+  const rsi1m = calcRSI(closes1m) as (number | null)[];
+  const macd1m = calcMACD(closes1m);
+  const dtBuy: any[] = [];
+  const dtSell: any[] = [];
+
+  for (let i = 1; i < bars.length; i++) {
+    // RSI cross
+    if (rsi1m[i - 1] != null && rsi1m[i] != null) {
+      if (rsi1m[i - 1]! >= 30 && rsi1m[i]! < 30)
+        dtBuy.push({ coord: [dates[i], ohlc[i][2]], value: "RSI<30" });
+      if (rsi1m[i - 1]! <= 70 && rsi1m[i]! > 70)
+        dtSell.push({ coord: [dates[i], ohlc[i][3]], value: "RSI>70" });
+    }
+    // MACD histogram cross
+    const mh = macd1m.hist;
+    if (mh[i - 1] < 0 && mh[i] >= 0)
+      dtBuy.push({ coord: [dates[i], ohlc[i][2]], value: "MACD+" });
+    if (mh[i - 1] >= 0 && mh[i] < 0)
+      dtSell.push({ coord: [dates[i], ohlc[i][3]], value: "MACD-" });
+  }
+
   const candleSeries: any = {
     name: "1m K", type: "candlestick", xAxisIndex: 0, yAxisIndex: 0,
     itemStyle: { color: "#ef4444", color0: "#22c55e", borderColor: "#ef4444", borderColor0: "#22c55e" },
     data: ohlc,
+    markArea: markAreaData.length > 0 ? { silent: true, data: markAreaData } : undefined,
+    markPoint: {
+      symbol: "arrow", symbolSize: 24,
+      label: { fontSize: 8, color: "#fff", formatter: (p: any) => p.value },
+      animation: false,
+      data: [
+        ...dtBuy.map((p: any) => ({ ...p, symbolRotate: 0, itemStyle: { color: "#22c55ecc" } })),
+        ...dtSell.map((p: any) => ({ ...p, symbolRotate: 180, itemStyle: { color: "#ef4444cc" } })),
+      ],
+    },
   };
-  if (markAreaData.length > 0) {
-    candleSeries.markArea = { silent: true, data: markAreaData };
-  }
 
   chart.setOption({
     backgroundColor: "transparent",
@@ -529,6 +589,7 @@ function toggleLive1m(btn: HTMLButtonElement) {
     if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
     liveBar.style.display = "none";
     setLiveLayout(false);
+    showSignalLegend(false);
     if (currentSymbol && currentData.length > 0) renderChart(currentData);
   } else {
     // Switch to 1m
@@ -537,10 +598,18 @@ function toggleLive1m(btn: HTMLButtonElement) {
     btn.textContent = "⏹ 1m Live";
     liveBar.style.display = "flex";
     setLiveLayout(true);
+    showSignalLegend(true);
     document.getElementById("live-status")!.textContent = "⟳ Loading...";
     refresh1mView();
     liveTimer = setInterval(() => refresh1mView(), 60_000);
   }
+}
+
+function showSignalLegend(on: boolean) {
+  const title = document.getElementById("signal-legend-title");
+  const legend = document.getElementById("signal-legend");
+  if (title) title.style.display = on ? "block" : "none";
+  if (legend) legend.style.display = on ? "block" : "none";
 }
 
 // ── indicator toggle ───────────────────────────────────────────────────────
@@ -663,6 +732,7 @@ async function scanAll() {
     const liveBar = document.getElementById("live-bar")!;
     liveBar.style.display = "none";
     setLiveLayout(false);
+    showSignalLegend(false);
     if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
     // Reset 1D button text
     document.querySelectorAll(".period-btn").forEach((b) => {
@@ -684,6 +754,7 @@ async function scanAll() {
     const liveBar = document.getElementById("live-bar")!;
     liveBar.style.display = "none";
     setLiveLayout(false);
+    showSignalLegend(false);
     if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
     if (currentSymbol && currentData.length > 0) renderChart(currentData);
     // Reactivate the previously selected period button
@@ -702,6 +773,7 @@ async function scanAll() {
     const liveBar = document.getElementById("live-bar")!;
     liveBar.style.display = "flex";
     setLiveLayout(true);
+    showSignalLegend(true);
     document.getElementById("live-status")!.textContent = "⟳ Loading...";
     refresh1mView();
     liveTimer = setInterval(() => refresh1mView(), 60_000);
@@ -765,3 +837,446 @@ initChart();
 loadWatchlist();
 loadConfig();
 loadStock("2330.TW", currentDays);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCANNER — Day Trading Signal Capture
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface ScanRow {
+  symbol: string; name: string; last_price: number;
+  score: number; direction: string; top_signals: string[];
+}
+
+interface DaySig {
+  kind: string; direction: string; strength: string;
+  score: number; reason: string;
+}
+
+interface BarSig {
+  idx: number; date: string; signals: DaySig[]; score: number;
+}
+
+interface DayTrade {
+  symbol: string; bars: any[]; signals: BarSig[];
+  latest_score: number; latest_direction: string;
+}
+
+let scannerOpen = false;
+let scannerSub: "list" | "analysis" | "replay" = "list";
+let scanResults: ScanRow[] = [];
+let daytradeData: DayTrade | null = null;
+let daytradeSymbol = "";
+let replayIdx = 0;
+let replayTimer: ReturnType<typeof setInterval> | null = null;
+let replaySpeed = 1000;
+let replayPnl = { trades: 0, wins: 0, totalPct: 0, position: null as null | "long", entryPrice: 0 };
+
+// ── scanner toggle ───────────────────────────────────────────────────────
+function toggleScanner() {
+  scannerOpen = !scannerOpen;
+  const sv = document.getElementById("scanner-view")!;
+  const mainEl = document.getElementById("main")!;
+  if (scannerOpen) {
+    sv.style.display = "flex";
+    mainEl.style.display = "none";
+    loadScanResults();
+  } else {
+    sv.style.display = "none";
+    mainEl.style.display = "flex";
+    if (replayTimer) { clearInterval(replayTimer); replayTimer = null; }
+    if (currentSymbol && currentData.length > 0) renderChart(currentData);
+  }
+}
+
+function setScannerSub(sub: "list" | "analysis" | "replay") {
+  scannerSub = sub;
+  document.getElementById("sub-list-btn")!.classList.toggle("active", sub === "list");
+  document.getElementById("sub-analysis-btn")!.classList.toggle("active", sub === "analysis");
+  document.getElementById("sub-replay-btn")!.classList.toggle("active", sub === "replay");
+  document.getElementById("scan-table")!.style.display = sub === "list" ? "block" : "none";
+  document.getElementById("scanner-chart-wrap")!.style.display = sub !== "list" ? "flex" : "none";
+  document.getElementById("replay-controls")!.style.display = sub === "replay" ? "flex" : "none";
+  document.getElementById("signal-detail")!.style.display = "none";
+  if (sub === "replay" && daytradeData) startReplay();
+}
+
+// ── scan list ────────────────────────────────────────────────────────────
+async function loadScanResults() {
+  const el = document.getElementById("scan-table")!;
+  el.innerHTML = '<div style="color:#556;padding:20px;text-align:center">Scanning watchlist...</div>';
+  try {
+    const resp = await fetch("/api/scan-signals");
+    const data = await resp.json();
+    scanResults = data.results ?? [];
+    if (scanResults.length === 0) {
+      el.innerHTML = '<div style="color:#445;padding:20px;text-align:center">No results. Add stocks to watchlist first.</div>';
+      return;
+    }
+    renderScanTable();
+  } catch (e) {
+    el.innerHTML = `<div style="color:#e84848;padding:20px">Error: ${(e as Error).message}</div>`;
+  }
+}
+
+function scoreColor(score: number): string {
+  if (score >= 30) return "#22c55e";
+  if (score >= 10) return "#86efac";
+  if (score <= -30) return "#ef4444";
+  if (score <= -10) return "#fca5a5";
+  return "#778";
+}
+
+function renderScanTable() {
+  const el = document.getElementById("scan-table")!;
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="color:#445;font-size:10px;text-transform:uppercase;border-bottom:1px solid #1e2028">
+        <th style="text-align:left;padding:6px 8px">Symbol</th>
+        <th style="text-align:left;padding:6px 4px">Name</th>
+        <th style="text-align:right;padding:6px 4px">Price</th>
+        <th style="text-align:right;padding:6px 4px">Score</th>
+        <th style="text-align:center;padding:6px 4px">Signal</th>
+        <th style="text-align:left;padding:6px 4px">Top Signals</th>
+      </tr></thead>
+      <tbody>${scanResults.map((r, i) => `
+        <tr style="cursor:pointer;border-bottom:1px solid #13151a;${i % 2 ? "" : "background:#0f1014"}" onclick="openAnalysis('${r.symbol}')">
+          <td style="padding:6px 8px;font-weight:600;color:#dde">${r.symbol}</td>
+          <td style="padding:6px 4px;color:#556;font-size:11px">${r.name || r.symbol}</td>
+          <td style="text-align:right;padding:6px 4px;color:#99a">${r.last_price.toFixed(2)}</td>
+          <td style="text-align:right;padding:6px 4px;font-weight:700;color:${scoreColor(r.score)}">${r.score > 0 ? "+" : ""}${r.score}</td>
+          <td style="text-align:center;padding:6px 4px">
+            <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;
+              background:${r.direction === "Buy" ? "#22c55e20" : r.direction === "Sell" ? "#ef444420" : "#3333"};
+              color:${r.direction === "Buy" ? "#22c55e" : r.direction === "Sell" ? "#ef4444" : "#556"}">${r.direction}</span>
+          </td>
+          <td style="padding:6px 4px;color:#667;font-size:10px">${r.top_signals.join(", ")}</td>
+        </tr>`).join("")}</tbody>
+    </table>`;
+}
+
+// ── analysis view ────────────────────────────────────────────────────────
+async function openAnalysis(symbol: string) {
+  scannerSub = "analysis";
+  setScannerSub("analysis");
+  daytradeSymbol = symbol;
+
+  const wrap = document.getElementById("scanner-chart-wrap")!;
+  const existingChart = document.getElementById("scanner-chart")!;
+  existingChart.innerHTML = "";
+
+  // Init a second chart for scanner if needed
+  let sc = echarts.getInstanceByDom(existingChart) || echarts.init(existingChart, "dark");
+  new ResizeObserver(() => sc.resize()).observe(existingChart);
+
+  const overlay = document.createElement("div");
+  overlay.textContent = `Loading ${symbol}...`;
+  overlay.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#556;z-index:5";
+  wrap.appendChild(overlay);
+
+  try {
+    const resp = await fetch(`/api/daytrade/${encodeURIComponent(symbol)}`);
+    daytradeData = await resp.json();
+    wrap.removeChild(overlay);
+    renderAnalysisChart(sc);
+  } catch (e) {
+    overlay.textContent = `Error: ${(e as Error).message}`;
+    overlay.style.color = "#e84848";
+  }
+}
+
+function renderAnalysisChart(sc: any) {
+  if (!daytradeData || !daytradeData.bars.length) return;
+  const bars = daytradeData.bars;
+  const dates = bars.map((b: any) => {
+    const d = new Date(b.time * 1000);
+    return d.toISOString().slice(0, 10);
+  });
+  const ohlc = bars.map((b: any) => [b.open, b.close, b.low, b.high]);
+  const closes = bars.map((b: any) => b.close);
+  const volumes = bars.map((b: any) => b.volume);
+
+  // Compute BB & EMA client-side for overlay
+  const bb = calcBB(closes);
+  const ema5 = calcEMA(closes, 5);
+  const ema20 = calcEMA(closes, 20);
+
+  // Build signal index map
+  const sigMap = new Map<number, BarSig>();
+  for (const bs of daytradeData.signals) sigMap.set(bs.idx, bs);
+
+  // Buy/sell markers
+  const buyPts: any[] = [];
+  const sellPts: any[] = [];
+  for (const bs of daytradeData.signals) {
+    if (bs.score > 0) {
+      buyPts.push({ coord: [dates[bs.idx], ohlc[bs.idx][2]], value: `+${bs.score}`, sigIdx: bs.idx });
+    } else if (bs.score < 0) {
+      sellPts.push({ coord: [dates[bs.idx], ohlc[bs.idx][3]], value: `${bs.score}`, sigIdx: bs.idx });
+    }
+  }
+
+  // Volume surge highlight: bars where volume > 2x 20-day avg
+  const volColors = volumes.map((v: number, i: number) => {
+    if (i < 20) return ohlc[i][1] >= ohlc[i][0] ? "#ef444466" : "#22c55e66";
+    const avg = volumes.slice(i - 20, i).reduce((a: number, b: number) => a + b, 0) / 20;
+    const isSurge = v > avg * 2;
+    if (isSurge) return "#f59e0b88"; // orange for surge
+    return ohlc[i][1] >= ohlc[i][0] ? "#ef444466" : "#22c55e66";
+  });
+
+  sc.setOption({
+    backgroundColor: "transparent",
+    animation: false,
+    tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
+    legend: {
+      data: ["K线", "成交量", "BB上", "BB中", "BB下", "EMA5", "EMA20"],
+      top: 0, textStyle: { color: "#556", fontSize: 10 },
+      selected: { "BB中": false, "BB下": false },
+    },
+    grid: [
+      { left: 60, right: 20, top: 35, height: "58%" },
+      { left: 60, right: 20, top: "73%", height: "17%" },
+    ],
+    xAxis: [
+      { type: "category", data: dates, gridIndex: 0, axisLabel: { show: false }, axisTick: { show: false }, axisLine: { lineStyle: { color: "#21242e" } } },
+      { type: "category", data: dates, gridIndex: 1, axisLabel: { color: "#556", fontSize: 9 }, axisLine: { lineStyle: { color: "#21242e" } } },
+    ],
+    yAxis: [
+      { type: "value", gridIndex: 0, scale: true, splitLine: { lineStyle: { color: "#1a1c22" } }, axisLabel: { color: "#778" } },
+      { type: "value", gridIndex: 1, splitLine: { show: false }, axisLabel: { show: false } },
+    ],
+    dataZoom: [
+      { type: "inside", xAxisIndex: [0, 1], start: 70, end: 100 },
+      { type: "slider", xAxisIndex: [0, 1], bottom: 10, height: 18, borderColor: "#21242e", fillerColor: "rgba(91,141,239,0.15)", handleStyle: { color: "#5b8def" } },
+    ],
+    series: [
+      {
+        name: "K线", type: "candlestick", xAxisIndex: 0, yAxisIndex: 0,
+        itemStyle: { color: "#ef4444", color0: "#22c55e", borderColor: "#ef4444", borderColor0: "#22c55e" },
+        data: ohlc,
+        markPoint: {
+          symbol: "arrow", symbolSize: 20,
+          label: { fontSize: 8, color: "#fff", formatter: (p: any) => p.value },
+          animation: false,
+          data: [
+            ...buyPts.map(p => ({ ...p, symbolRotate: 0, symbolSize: 18, itemStyle: { color: "#22c55ecc" } })),
+            ...sellPts.map(p => ({ ...p, symbolRotate: 180, symbolSize: 18, itemStyle: { color: "#ef4444cc" } })),
+          ],
+        },
+      },
+      {
+        name: "成交量", type: "bar", xAxisIndex: 1, yAxisIndex: 1,
+        data: volumes.map((v: number, i: number) => ({ value: v, itemStyle: { color: volColors[i] } })),
+      },
+      {
+        name: "BB上", type: "line", xAxisIndex: 0, yAxisIndex: 0,
+        data: bb.upper, symbol: "none", lineStyle: { color: "#5b8def55", width: 1 },
+      },
+      {
+        name: "BB中", type: "line", xAxisIndex: 0, yAxisIndex: 0,
+        data: bb.mid, symbol: "none", lineStyle: { color: "#5b8def88", width: 1, type: "dashed" },
+      },
+      {
+        name: "BB下", type: "line", xAxisIndex: 0, yAxisIndex: 0,
+        data: bb.lower, symbol: "none", lineStyle: { color: "#5b8def55", width: 1 },
+      },
+      {
+        name: "EMA5", type: "line", xAxisIndex: 0, yAxisIndex: 0,
+        data: ema5, symbol: "none", lineStyle: { color: "#f59e0b88", width: 1 },
+      },
+      {
+        name: "EMA20", type: "line", xAxisIndex: 0, yAxisIndex: 0,
+        data: ema20, symbol: "none", lineStyle: { color: "#8b5cf688", width: 1 },
+      },
+    ],
+  }, true);
+
+  // Click handler for signal detail
+  sc.off("click");
+  sc.on("click", (params: any) => {
+    const di = params.dataIndex;
+    if (di == null) return;
+    const bs = sigMap.get(di);
+    if (!bs) {
+      document.getElementById("signal-detail")!.style.display = "none";
+      return;
+    }
+    showSignalDetail(bs, dates[di], closes[di]);
+  });
+}
+
+function showSignalDetail(bs: BarSig, date: string, price: number) {
+  const el = document.getElementById("signal-detail")!;
+  const title = document.getElementById("sd-title")!;
+  const list = document.getElementById("sd-list")!;
+  title.textContent = `${date} — ${price.toFixed(2)} (score: ${bs.score > 0 ? "+" : ""}${bs.score})`;
+  list.innerHTML = bs.signals.map(s => {
+    const c = s.direction === "Buy" ? "#22c55e" : s.direction === "Sell" ? "#ef4444" : "#556";
+    return `<div class="sd-item">
+      <span class="sd-kind" style="color:${c}">${s.direction} ${s.kind}</span>
+      <span style="color:${c};font-size:10px;margin-left:4px">${s.strength} (${s.score > 0 ? "+" : ""}${s.score})</span>
+      <div class="sd-reason">${s.reason}</div>
+    </div>`;
+  }).join("");
+  el.style.display = "block";
+}
+
+// ── replay mode ──────────────────────────────────────────────────────────
+function startReplay() {
+  if (!daytradeData || !daytradeData.bars.length) return;
+  replayIdx = 30; // start after warmup
+  replayPnl = { trades: 0, wins: 0, totalPct: 0, position: null, entryPrice: 0 };
+  if (replayTimer) { clearInterval(replayTimer); replayTimer = null; }
+  renderReplayChart();
+  updateReplayStats();
+}
+
+function renderReplayChart() {
+  if (!daytradeData) return;
+  const bars = daytradeData.bars.slice(0, replayIdx + 1);
+  const dates = bars.map((b: any) => new Date(b.time * 1000).toISOString().slice(0, 10));
+  const ohlc = bars.map((b: any) => [b.open, b.close, b.low, b.high]);
+  const closes = bars.map((b: any) => b.close);
+  const volumes = bars.map((b: any) => b.volume);
+
+  // Only show signals up to current replayIdx
+  const sigs = daytradeData.signals.filter(bs => bs.idx <= replayIdx);
+  const buyPts: any[] = [];
+  const sellPts: any[] = [];
+  for (const bs of sigs) {
+    const localIdx = bs.idx;
+    if (localIdx >= dates.length) continue;
+    if (bs.score > 0) buyPts.push({ coord: [dates[localIdx], ohlc[localIdx][2]], value: `+${bs.score}` });
+    else if (bs.score < 0) sellPts.push({ coord: [dates[localIdx], ohlc[localIdx][3]], value: `${bs.score}` });
+  }
+
+  // Check if current bar has a signal
+  const currentSig = daytradeData.signals.find(bs => bs.idx === replayIdx);
+
+  const existingChart = document.getElementById("scanner-chart")!;
+  let sc = echarts.getInstanceByDom(existingChart) || echarts.init(existingChart, "dark");
+
+  sc.setOption({
+    backgroundColor: "transparent",
+    animation: false,
+    tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
+    legend: { show: false },
+    grid: [
+      { left: 60, right: 20, top: 30, height: "60%" },
+      { left: 60, right: 20, top: "73%", height: "17%" },
+    ],
+    xAxis: [
+      { type: "category", data: dates, gridIndex: 0, axisLabel: { show: false }, axisTick: { show: false }, axisLine: { lineStyle: { color: "#21242e" } } },
+      { type: "category", data: dates, gridIndex: 1, axisLabel: { color: "#556", fontSize: 9 }, axisLine: { lineStyle: { color: "#21242e" } } },
+    ],
+    yAxis: [
+      { type: "value", gridIndex: 0, scale: true, splitLine: { lineStyle: { color: "#1a1c22" } }, axisLabel: { color: "#778" } },
+      { type: "value", gridIndex: 1, splitLine: { show: false }, axisLabel: { show: false } },
+    ],
+    dataZoom: [
+      { type: "inside", xAxisIndex: [0, 1], start: 0, end: 100 },
+      { type: "slider", xAxisIndex: [0, 1], bottom: 10, height: 18, borderColor: "#21242e", fillerColor: "rgba(91,141,239,0.15)", handleStyle: { color: "#5b8def" } },
+    ],
+    series: [
+      {
+        name: "K线", type: "candlestick", xAxisIndex: 0, yAxisIndex: 0,
+        itemStyle: { color: "#ef4444", color0: "#22c55e", borderColor: "#ef4444", borderColor0: "#22c55e" },
+        data: ohlc,
+        markPoint: {
+          symbol: "arrow", symbolSize: 22, animation: false,
+          label: { fontSize: 9, color: "#fff", formatter: (p: any) => p.value },
+          data: [
+            ...buyPts.map((p: any) => ({ ...p, symbolRotate: 0, itemStyle: { color: "#22c55ecc" } })),
+            ...sellPts.map((p: any) => ({ ...p, symbolRotate: 180, itemStyle: { color: "#ef4444cc" } })),
+          ],
+        },
+      },
+      {
+        name: "成交量", type: "bar", xAxisIndex: 1, yAxisIndex: 1,
+        data: volumes.map((v: number, i: number) => ({
+          value: v,
+          itemStyle: { color: ohlc[i][1] >= ohlc[i][0] ? "#ef444466" : "#22c55e66" },
+        })),
+      },
+    ],
+  }, true);
+
+  // Show signal detail if current bar has one
+  if (currentSig) {
+    const d = dates[dates.length - 1];
+    showSignalDetail(currentSig, d, closes[closes.length - 1]);
+    // Track P&L
+    updatePnl(currentSig, closes[closes.length - 1]);
+  } else {
+    document.getElementById("signal-detail")!.style.display = "none";
+  }
+}
+
+function updatePnl(bs: BarSig, price: number) {
+  if (bs.score > 0 && replayPnl.position !== "long") {
+    // Buy signal → enter long
+    replayPnl.position = "long";
+    replayPnl.entryPrice = price;
+  } else if (bs.score < 0 && replayPnl.position === "long") {
+    // Sell signal → exit long
+    const pnl = (price - replayPnl.entryPrice) / replayPnl.entryPrice * 100;
+    replayPnl.trades++;
+    if (pnl > 0) replayPnl.wins++;
+    replayPnl.totalPct += pnl;
+    replayPnl.position = null;
+  }
+  updateReplayStats();
+}
+
+function updateReplayStats() {
+  const el = document.getElementById("replay-stats")!;
+  const wr = replayPnl.trades > 0 ? (replayPnl.wins / replayPnl.trades * 100).toFixed(0) : "--";
+  const pnlSign = replayPnl.totalPct >= 0 ? "+" : "";
+  const pos = replayPnl.position === "long" ? " [LONG]" : "";
+  el.innerHTML = `<span style="color:#99a">Trades: ${replayPnl.trades}</span> · ` +
+    `<span style="color:#99a">Win: ${wr}%</span> · ` +
+    `<span style="color:${replayPnl.totalPct >= 0 ? "#22c55e" : "#ef4444"}">P&L: ${pnlSign}${replayPnl.totalPct.toFixed(2)}%</span>` +
+    `<span style="color:#22c55e">${pos}</span>`;
+}
+
+function replayPlay() {
+  if (replayTimer) return;
+  replayTimer = setInterval(() => {
+    if (replayIdx >= (daytradeData?.bars.length ?? 0) - 1) {
+      replayPause();
+      return;
+    }
+    replayIdx++;
+    renderReplayChart();
+  }, replaySpeed);
+}
+
+function replayPause() {
+  if (replayTimer) { clearInterval(replayTimer); replayTimer = null; }
+}
+
+function replayStep() {
+  if (replayIdx >= (daytradeData?.bars.length ?? 0) - 1) return;
+  replayIdx++;
+  renderReplayChart();
+}
+
+function setReplaySpeed(val: number) {
+  replaySpeed = val;
+  // If currently playing, restart with new speed
+  if (replayTimer) {
+    clearInterval(replayTimer);
+    replayTimer = null;
+    replayPlay();
+  }
+}
+
+// ── expose scanner to HTML ───────────────────────────────────────────────
+(window as any).toggleScanner = toggleScanner;
+(window as any).setScannerSub = setScannerSub;
+(window as any).loadScanResults = loadScanResults;
+(window as any).openAnalysis = openAnalysis;
+(window as any).replayPlay = replayPlay;
+(window as any).replayPause = replayPause;
+(window as any).replayStep = replayStep;
+(window as any).setReplaySpeed = setReplaySpeed;

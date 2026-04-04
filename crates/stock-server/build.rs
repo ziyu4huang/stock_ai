@@ -137,6 +137,71 @@ fn main() {
     #scan-btn:disabled {{ opacity:.5; cursor:wait; }}
     #scan-results {{ padding:4px 8px; }}
 
+    /* scanner view */
+    #scanner-view {{
+      display:none; position:fixed; top:44px; left:220px; right:0; bottom:0; z-index:18;
+      background:#0d0e11; flex-direction:column; overflow:hidden;
+    }}
+    #scanner-bar {{
+      display:flex; align-items:center; gap:6px; padding:6px 12px;
+      background:#13151a; border-bottom:1px solid #21242e;
+    }}
+    .sbtn {{
+      background:#1a1d25; color:#99aabb; border:1px solid #272c38;
+      padding:4px 12px; border-radius:5px; font-size:11px; cursor:pointer;
+    }}
+    .sbtn:hover {{ background:#222733; color:#dde; }}
+    .sbtn.active {{ background:#1a2a50; color:#6a9eff; border-color:#2a4080; }}
+    #scan-all-btn {{
+      margin-left:auto; background:#1a2a20; color:#3dbb6a; border:1px solid #1a4a28;
+      padding:4px 12px; border-radius:5px; font-size:11px; cursor:pointer; font-weight:600;
+    }}
+    #scan-all-btn:hover {{ background:#2a3a28; }}
+    #scan-all-btn:disabled {{ opacity:.5; cursor:wait; }}
+    #scan-table {{
+      flex:1; overflow-y:auto; padding:0;
+    }}
+    .scan-row {{
+      display:flex; align-items:center; gap:10px; padding:8px 14px;
+      border-bottom:1px solid #181b22; cursor:pointer; transition:background .15s;
+    }}
+    .scan-row:hover {{ background:#161922; }}
+    .scan-sym {{ font-weight:700; min-width:70px; color:#dde; }}
+    .scan-name {{ min-width:60px; color:#556; font-size:10px; }}
+    .scan-price {{ min-width:60px; color:#99a; font-size:12px; }}
+    .scan-score {{
+      font-weight:700; font-size:14px; min-width:40px; text-align:right;
+      padding:2px 8px; border-radius:4px;
+    }}
+    .scan-dir {{
+      font-weight:700; font-size:11px; min-width:40px; text-align:center;
+      padding:2px 8px; border-radius:3px;
+    }}
+    .scan-sigs {{ flex:1; font-size:10px; color:#667; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
+    #scanner-chart-wrap {{ flex:1; display:none; flex-direction:column; overflow:hidden; position:relative; }}
+    #scanner-chart {{ flex:1; width:100%; }}
+    #replay-bar {{
+      display:none; align-items:center; gap:8px; padding:6px 12px;
+      background:#13151a; border-top:1px solid #21242e;
+    }}
+    .rbtn {{
+      background:#1a1d25; color:#99aabb; border:1px solid #272c38;
+      padding:3px 10px; border-radius:4px; font-size:11px; cursor:pointer;
+    }}
+    .rbtn:hover {{ background:#222733; color:#dde; }}
+    #replay-speed {{ width:80px; }}
+    #replay-stats {{ font-size:11px; color:#778; margin-left:8px; }}
+    #signal-detail {{
+      position:absolute; bottom:50px; right:10px; z-index:25;
+      background:#13151acc; border:1px solid #21242e; border-radius:6px;
+      padding:10px; min-width:240px; max-width:360px; display:none;
+      box-shadow:0 4px 16px rgba(0,0,0,.5);
+    }}
+    #signal-detail h4 {{ font-size:12px; color:#dde; margin-bottom:6px; }}
+    .sd-item {{ font-size:11px; padding:2px 0; }}
+    .sd-item .sd-kind {{ font-weight:600; }}
+    .sd-item .sd-reason {{ color:#667; }}
+
     /* main layout */
     #main {{
       position:fixed; top:44px; left:220px; right:0; bottom:0;
@@ -264,6 +329,8 @@ fn main() {
   <button class="ind-btn" onclick="toggleIndicator('rsi',this)">RSI</button>
   <button class="ind-btn" onclick="toggleIndicator('macd',this)">MACD</button>
   <button class="ind-btn" onclick="toggleIndicator('boll',this)">BB</button>
+  <div class="tsep"></div>
+  <button class="pbtn" id="scanner-btn" onclick="toggleScanner()">Scanner</button>
   <div id="tb-right">
     <button id="bt-btn" onclick="runBacktest()">HMM Backtest</button>
     <button id="rp-btn" onclick="openReport()">HTML Report</button>
@@ -313,6 +380,55 @@ fn main() {
     <div class="sl">Signals</div>
     <div id="signal-panel">
       <div id="signal-list"><div style="color:#445;font-size:11px">No signals yet</div></div>
+    </div>
+    <div class="sl" id="signal-legend-title" style="display:none">Signal Legend (1D)</div>
+    <div id="signal-legend" style="display:none">
+      <div style="display:flex;align-items:center;gap:5px;margin:2px 0">
+        <span style="color:#22c55e;font-size:14px">&#9650;</span>
+        <span style="font-size:10px;color:#99a">Buy — RSI crossed below 30 (oversold)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;margin:2px 0">
+        <span style="color:#ef4444;font-size:14px">&#9660;</span>
+        <span style="font-size:10px;color:#99a">Sell — RSI crossed above 70 (overbought)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;margin:2px 0">
+        <span style="color:#22c55e;font-size:14px">&#9650;</span>
+        <span style="font-size:10px;color:#99a">Buy — MACD histogram crossed positive</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;margin:2px 0">
+        <span style="color:#ef4444;font-size:14px">&#9660;</span>
+        <span style="font-size:10px;color:#99a">Sell — MACD histogram crossed negative</span>
+      </div>
+      <div style="margin-top:4px;padding-top:4px;border-top:1px solid #1e2028">
+        <div style="font-size:10px;color:#556">Click any marker on chart to see detail</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="scanner-view">
+  <div id="scanner-bar">
+    <button class="sbtn active" id="sub-list-btn" onclick="setScannerSub('list')">Scan List</button>
+    <button class="sbtn" id="sub-analysis-btn" onclick="setScannerSub('analysis')">Analysis</button>
+    <button class="sbtn" id="sub-replay-btn" onclick="setScannerSub('replay')">Replay</button>
+    <div style="flex:1"></div>
+    <button class="rbtn" id="scan-all-btn2" onclick="loadScanResults()">Scan All</button>
+    <button class="sbtn" onclick="toggleScanner()" style="color:#e84848">Close</button>
+  </div>
+  <div id="scan-table" style="flex:1;overflow-y:auto;padding:8px;"></div>
+  <div id="scanner-chart-wrap" style="flex:1;display:none;position:relative;">
+    <div id="scanner-chart" style="width:100%;height:100%;"></div>
+    <div id="replay-controls" style="display:none;position:absolute;bottom:40px;left:12px;right:12px;display:none;align-items:center;gap:8px;padding:6px 10px;background:#13151acc;border-radius:6px;">
+      <button class="sbtn" onclick="replayPlay()">&#9654; Play</button>
+      <button class="sbtn" onclick="replayPause()">&#9208; Pause</button>
+      <button class="sbtn" onclick="replayStep()">&#8594; Step</button>
+      <span style="font-size:10px;color:#556">Speed:</span>
+      <input id="replay-speed" type="range" min="100" max="3000" value="1000" step="100" onchange="setReplaySpeed(this.value)">
+      <span id="replay-stats"></span>
+    </div>
+    <div id="signal-detail">
+      <h4 id="sd-title">Signals</h4>
+      <div id="sd-list"></div>
     </div>
   </div>
 </div>

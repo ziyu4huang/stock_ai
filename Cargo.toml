@@ -3,6 +3,8 @@ resolver = "2"
 members = [
     "crates/stock-core",
     "crates/stock-server",
+    "crates/quant_trade_cli",
+    "crates/quant_trade_signal_tui",
 ]
 
 [workspace.package]
