@@ -1,4 +1,4 @@
-import { handleIntradayCandles, handleIntradayQuote, handleHistoricalCandles } from './api/market';
+import { handleIntradayCandles, handleIntradayQuote, handleIntradayTrades, handleHistoricalCandles } from './api/market';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -23,6 +23,7 @@ const server = Bun.serve({
     // API routes
     if (url.pathname === '/api/intraday/candles') return handleIntradayCandles(req).catch(e => Response.json({ error: e.message }, { status: 500 }));
     if (url.pathname === '/api/intraday/quote') return handleIntradayQuote(req).catch(e => Response.json({ error: e.message }, { status: 500 }));
+    if (url.pathname === '/api/intraday/trades') return handleIntradayTrades(req).catch(e => Response.json({ error: e.message }, { status: 500 }));
     if (url.pathname === '/api/historical/candles') return handleHistoricalCandles(req).catch(e => Response.json({ error: e.message }, { status: 500 }));
 
     // Watchlist CRUD

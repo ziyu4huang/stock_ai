@@ -22,6 +22,12 @@ bun_app/fbs_app/dist/
 output/
 log/
 
+# === Downloaded binaries (auto-fetched by scripts) ===
+bin/
+
+# === SurrealDB data (local database storage) ===
+kg_data/
+
 # === Presentation node_modules (use bun install to restore) ===
 docs/presentation/*/node_modules/
 docs/presentation/*/bun.lock

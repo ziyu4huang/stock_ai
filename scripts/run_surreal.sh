@@ -14,6 +14,8 @@ elif [[ -f "$SYSTEM_SURREAL" ]]; then
 else
     SURREAL_BIN=""  # Will trigger error below
 fi
+NO_DOWNLOAD=false
+
 DEFAULT_USER="root"
 DEFAULT_PASS="root"
 DEFAULT_BIND="0.0.0.0:8000"
@@ -151,6 +153,10 @@ while [[ $# -gt 0 ]]; do
             LOG_FILE_ENABLED=true
             shift 2
             ;;
+        --no-download)
+            NO_DOWNLOAD=true
+            shift
+            ;;
         -h|--help)
             show_help
             exit 0
@@ -163,9 +169,60 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+get_latest_surreal_version() {
+    # Returns the highest stable v3.x.x tag from GitHub releases API
+    curl -fsSL -H "Accept: application/vnd.github+json" \
+        "https://api.github.com/repos/surrealdb/surrealdb/releases" \
+        | grep '"tag_name"' \
+        | grep '"v3\.' \
+        | head -20 \
+        | sed 's/.*"tag_name": "\(v[^"]*\)".*/\1/' \
+        | sort -V -r \
+        | head -1
+}
+
+install_surreal_bin() {
+    local dest="$1"
+    echo "SurrealDB binary not found — fetching latest 3.x.x from GitHub..."
+
+    local tag
+    tag=$(get_latest_surreal_version) || { echo "Error: could not query GitHub releases API"; exit 1; }
+    [[ -z "$tag" ]] && { echo "Error: no stable v3.x.x release found"; exit 1; }
+
+    local os arch filename
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    arch=$(uname -m)
+    case "$os" in
+        linux)  os="linux" ;;
+        darwin) os="darwin" ;;
+        *)      echo "Error: unsupported OS '$os'"; exit 1 ;;
+    esac
+    case "$arch" in
+        x86_64)  arch="amd64" ;;
+        aarch64|arm64) arch="arm64" ;;
+        *)       echo "Error: unsupported arch '$arch'"; exit 1 ;;
+    esac
+
+    filename="surreal-${tag}.${os}-${arch}"
+    local url="https://github.com/surrealdb/surrealdb/releases/download/${tag}/${filename}"
+
+    echo "  Version : $tag"
+    echo "  URL     : $url"
+    echo "  Target  : $dest"
+
+    mkdir -p "$(dirname "$dest")"
+    curl -fsSL --progress-bar "$url" -o "$dest"
+    chmod +x "$dest"
+    echo "  Done."
+}
+
 if [[ ! -f "$SURREAL_BIN" ]]; then
-    echo "Error: SurrealDB binary not found at $SURREAL_BIN"
-    exit 1
+    if [[ "$NO_DOWNLOAD" == "true" ]]; then
+        echo "Error: SurrealDB binary not found. Remove --no-download to enable auto-download."
+        exit 1
+    fi
+    install_surreal_bin "$LOCAL_SURREAL"
+    SURREAL_BIN="$LOCAL_SURREAL"
 fi
 
 case "$DB_TYPE" in

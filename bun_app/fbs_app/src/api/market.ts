@@ -31,6 +31,22 @@ export async function handleIntradayQuote(req: Request): Promise<Response> {
   }
 }
 
+export async function handleIntradayTrades(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const symbol = url.searchParams.get('symbol') || '2330';
+  const limit = url.searchParams.get('limit') || '20';
+
+  const sdk = await getSDK();
+  const client = sdk.marketdata.restClient;
+
+  try {
+    const data = await client.stock.intraday.trades({ symbol, limit: Number(limit) });
+    return Response.json(data);
+  } catch (err: any) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}
+
 export async function handleHistoricalCandles(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const symbol = url.searchParams.get('symbol') || '2330';
@@ -48,6 +64,7 @@ export async function handleHistoricalCandles(req: Request): Promise<Response> {
       from,
       to,
       fields: 'open,high,low,close,volume,change',
+      sort: 'asc',
     });
     return Response.json(data);
   } catch (err: any) {
