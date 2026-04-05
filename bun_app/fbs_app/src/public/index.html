@@ -68,7 +68,7 @@ body { background: #121212; color: #e0e0e0; font-family: 'Consolas', 'Microsoft 
 #status.loading { color: #4fc3f7; }
 
 /* Right panel */
-.right-panel { width: 260px; display: flex; flex-direction: column; flex-shrink: 0; background: #0f0f0f; }
+.right-panel { flex: 1; display: flex; flex-direction: column; flex-shrink: 0; background: #0f0f0f; min-width: 0; }
 
 /* Order book (五檔) */
 .ob-section { padding: 6px 8px; border-bottom: 1px solid #2a2a2a; }
@@ -87,14 +87,14 @@ body { background: #121212; color: #e0e0e0; font-family: 'Consolas', 'Microsoft 
 .ob-row .ob-price.ask-price { color: #ff1744; }
 
 /* Stats panel */
-.stats-section { padding: 6px 8px; border-bottom: 1px solid #2a2a2a; flex: 1; overflow-y: auto; }
+.stats-section { padding: 6px 8px; border-bottom: 1px solid #2a2a2a; overflow-y: auto; flex-shrink: 0; }
 .stats-title { font-size: 11px; color: #666; margin-bottom: 4px; }
 .stat-row { display: flex; justify-content: space-between; font-size: 12px; padding: 1px 0; }
 .stat-row .label { color: #666; }
 .stat-row .value { color: #ccc; }
 
-/* Transaction table (成交明細) */
-.tx-section { border-top: 1px solid #2a2a2a; flex-shrink: 0; display: flex; flex-direction: column; max-height: 180px; }
+/* Transaction table (成交明細) — now in right panel */
+.tx-section { display: flex; flex-direction: column; flex-shrink: 0; }
 .tx-title { font-size: 11px; color: #666; padding: 3px 10px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a; flex-shrink: 0; }
 .tx-table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .tx-table th { padding: 2px 6px; text-align: right; color: #555; font-weight: normal; position: sticky; top: 0; background: #121212; border-bottom: 1px solid #2a2a2a; }
@@ -102,6 +102,23 @@ body { background: #121212; color: #e0e0e0; font-family: 'Consolas', 'Microsoft 
 .tx-table td { padding: 2px 6px; text-align: right; border-bottom: 1px solid #1a1a1a; }
 .tx-table td:first-child { text-align: left; color: #888; }
 .tx-wrap { flex: 1; overflow-y: auto; }
+
+/* Right panel bottom tabs */
+.rp-bottom { border-top: 1px solid #2a2a2a; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.rp-tabs { display: flex; background: #0a0a0a; border-bottom: 1px solid #2a2a2a; flex-shrink: 0; }
+.rp-tab-btn { padding: 4px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: #555; cursor: pointer; font-size: 11px; font-family: inherit; }
+.rp-tab-btn:hover { color: #aaa; }
+.rp-tab-btn.active { color: #4fc3f7; border-bottom-color: #4fc3f7; }
+.rp-view { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.rp-view.active { display: flex; }
+
+/* Price-volume table (價量表) */
+.pv-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.pv-table th { padding: 2px 4px; text-align: right; color: #555; font-weight: normal; position: sticky; top: 0; background: #121212; border-bottom: 1px solid #2a2a2a; }
+.pv-table th:first-child { text-align: left; }
+.pv-table td { padding: 2px 4px; text-align: right; border-bottom: 1px solid #1a1a1a; }
+.pv-table td:first-child { text-align: left; }
+.pv-bar { display: inline-block; height: 10px; background: #7c4dff55; vertical-align: middle; }
 
 /* ===== Watchlist Tab ===== */
 .wl-layout { display: flex; flex: 1; overflow: hidden; }
@@ -135,6 +152,16 @@ body { background: #121212; color: #e0e0e0; font-family: 'Consolas', 'Microsoft 
 .wl-table .del-btn { background: none; border: none; color: #444; cursor: pointer; font-size: 12px; }
 .wl-table .del-btn:hover { color: #ff1744; }
 .wl-empty { padding: 40px; text-align: center; color: #444; }
+
+/* Market selector & import/export */
+.wl-actions { display: flex; gap: 4px; align-items: center; }
+.wl-market-sel { padding: 3px 6px; background: #121212; border: 1px solid #333; color: #ccc; border-radius: 2px; font-size: 11px; font-family: inherit; cursor: pointer; }
+.wl-market-sel option { background: #1a1a1a; }
+.wl-io-btn { padding: 3px 8px; background: transparent; border: 1px solid #333; color: #888; border-radius: 2px; cursor: pointer; font-size: 11px; font-family: inherit; }
+.wl-io-btn:hover { color: #4fc3f7; border-color: #4fc3f7; }
+.market-tag { font-size: 10px; padding: 1px 4px; border-radius: 2px; }
+.market-tag.tw { background: #1a3a5c33; color: #4fc3f7; }
+.market-tag.two { background: #3a1a5c33; color: #ce93d8; }
 </style>
 </head>
 <body>
@@ -142,12 +169,12 @@ body { background: #121212; color: #e0e0e0; font-family: 'Consolas', 'Microsoft 
 <!-- ===== Tab Bar ===== -->
 <div class="tab-bar">
   <span class="logo">FBS</span>
-  <button class="tab-btn active" data-tab="chart">走勢圖</button>
-  <button class="tab-btn" data-tab="watchlist">自選股</button>
+  <button class="tab-btn active" data-tab="watchlist">自選股</button>
+  <button class="tab-btn" data-tab="chart">走勢圖</button>
 </div>
 
 <!-- ===== Chart Tab ===== -->
-<div class="tab-content active" id="tab-chart">
+<div class="tab-content" id="tab-chart">
   <div class="chart-toolbar">
     <input type="text" class="sym-input" id="symbolInput" value="2330" maxlength="6" />
     <span class="stock-name" id="stockName"></span>
@@ -179,19 +206,9 @@ body { background: #121212; color: #e0e0e0; font-family: 'Consolas', 'Microsoft 
         <div id="chart"></div>
         <div id="status"></div>
       </div>
-      <!-- Transaction table -->
-      <div class="tx-section" id="txSection">
-        <div class="tx-title">成交明細</div>
-        <div class="tx-wrap">
-          <table class="tx-table">
-            <thead><tr><th style="width:60px">時間</th><th>買價</th><th>賣價</th><th>成交</th><th>單量</th><th>累計</th></tr></thead>
-            <tbody id="txBody"></tbody>
-          </table>
-        </div>
-      </div>
     </div>
 
-    <!-- Right panel: order book + stats -->
+    <!-- Right panel: order book + stats + bottom tabs -->
     <div class="right-panel">
       <div class="ob-section" id="obSection">
         <div class="ob-title">
@@ -203,6 +220,29 @@ body { background: #121212; color: #e0e0e0; font-family: 'Consolas', 'Microsoft 
       <div class="stats-section">
         <div class="stats-title">行情資訊</div>
         <div id="statsRows"></div>
+      </div>
+      <!-- Bottom tabs: 明細 / 價量表 -->
+      <div class="rp-bottom">
+        <div class="rp-tabs">
+          <button class="rp-tab-btn active" data-rp="tx">明細</button>
+          <button class="rp-tab-btn" data-rp="pv">價量表</button>
+        </div>
+        <div class="rp-view active" id="rpViewTx">
+          <div class="tx-wrap">
+            <table class="tx-table">
+              <thead><tr><th style="width:60px">時間</th><th>買價</th><th>賣價</th><th>成交</th><th>單量</th><th>累計</th></tr></thead>
+              <tbody id="txBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="rp-view" id="rpViewPv">
+          <div class="tx-wrap">
+            <table class="pv-table">
+              <thead><tr><th>價格</th><th>委託</th><th>成交</th><th>比例</th><th>筆數</th><th>均量</th></tr></thead>
+              <tbody id="pvBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -219,7 +259,7 @@ body { background: #121212; color: #e0e0e0; font-family: 'Consolas', 'Microsoft 
     <button class="dp-go-btn" id="dpGoBtn">查詢</button>
   </div>
 </div>
-<div class="tab-content" id="tab-watchlist">
+<div class="tab-content active" id="tab-watchlist">
   <div class="wl-layout">
     <div class="wl-groups">
       <div class="wl-groups-header"><span>群組</span></div>
@@ -229,14 +269,24 @@ body { background: #121212; color: #e0e0e0; font-family: 'Consolas', 'Microsoft 
     <div class="wl-stocks">
       <div class="wl-stocks-header">
         <h3 id="wlGroupName">自選股</h3>
-        <div class="wl-add-stock">
-          <input type="text" id="newStockInput" placeholder="股票代號" maxlength="6" />
-          <button class="btn" id="addStockBtn">加入</button>
+        <div class="wl-actions">
+          <div class="wl-add-stock">
+            <input type="text" id="newStockInput" placeholder="股票代號" maxlength="10" />
+            <select class="wl-market-sel" id="marketSelect">
+              <option value="auto">自動</option>
+              <option value="TW">上市.TW</option>
+              <option value="TWO">上櫃.TWO</option>
+            </select>
+            <button class="btn" id="addStockBtn">加入</button>
+          </div>
+          <button class="wl-io-btn" id="wlExportBtn" title="匯出">&#x2B07; 匯出</button>
+          <button class="wl-io-btn" id="wlImportBtn" title="匯入">&#x2B06; 匯入</button>
+          <input type="file" id="wlImportFile" accept=".json" style="display:none" />
         </div>
       </div>
       <div class="wl-table-wrap">
         <table class="wl-table">
-          <thead><tr><th>代號</th><th>名稱</th><th>成交</th><th>漲跌</th><th>漲幅%</th><th>總量</th><th></th></tr></thead>
+          <thead><tr><th>代號</th><th>市場</th><th>名稱</th><th>成交</th><th>漲跌</th><th>漲幅%</th><th>總量</th><th></th></tr></thead>
           <tbody id="wlStocksBody"></tbody>
         </table>
         <div class="wl-empty" id="wlEmpty">尚無股票，請輸入代號加入</div>
@@ -249,7 +299,8 @@ body { background: #121212; color: #e0e0e0; font-family: 'Consolas', 'Microsoft 
 // ============================================================
 //  TAB SWITCHING
 // ============================================================
-let activeTab = 'chart';
+let activeTab = 'watchlist';
+let chartLoaded = false;
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tab = btn.dataset.tab;
@@ -261,7 +312,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     activeTab = tab;
     if (tab === 'chart') {
       if (chart) chart.resize();
-      if (mode === 'live') startRefresh();
+      if (!chartLoaded) { loadChartData(); chartLoaded = true; }
+      else if (mode === 'live') startRefresh();
     } else {
       stopRefresh();
       refreshWatchlistQuotes();
@@ -271,14 +323,15 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 function switchToChart(sym) {
   symbol = sym;
-  document.getElementById('symbolInput').value = sym;
+  document.getElementById('symbolInput').value = toFbsSym(sym);
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('.tab-btn[data-tab="chart"]').classList.add('active');
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-chart').classList.add('active');
   activeTab = 'chart';
   if (chart) chart.resize();
-  startRefresh();
+  if (!chartLoaded) { loadChartData(); chartLoaded = true; }
+  else startRefresh();
 }
 
 // ============================================================
@@ -296,7 +349,7 @@ function initChart() {
   chart = echarts.init(document.getElementById('chart'), null, { renderer: 'canvas' });
   window.addEventListener('resize', () => { if (activeTab === 'chart') chart.resize(); });
   chart.setOption({
-    backgroundColor: '#121212',
+    backgroundColor: '#000000',
     animation: false,
     grid: [
       { left: 60, right: 10, top: 20, height: '65%' },
@@ -307,7 +360,7 @@ function initChart() {
       { type: 'category', data: [], gridIndex: 1, axisLine: { lineStyle: { color: '#2a2a2a' } }, axisTick: { show: false }, axisLabel: { show: false } },
     ],
     yAxis: [
-      { type: 'value', gridIndex: 0, scale: true, splitLine: { lineStyle: { color: '#1e1e1e' } }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#555', fontSize: 10 } },
+      { type: 'value', gridIndex: 0, scale: true, splitLine: { lineStyle: { color: '#1e1e1e' } }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#00e676', fontSize: 10 } },
       { type: 'value', gridIndex: 1, scale: true, splitLine: { show: false }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#555', fontSize: 9 } },
     ],
     tooltip: { trigger: 'axis', axisPointer: { type: 'cross', crossStyle: { color: '#444' } }, backgroundColor: '#1a1a1aee', borderColor: '#333', textStyle: { color: '#ccc', fontSize: 12 } },
@@ -315,14 +368,14 @@ function initChart() {
       { name: 'Price', type: 'line', xAxisIndex: 0, yAxisIndex: 0, data: [],
         lineStyle: { width: 1.5, color: '#ffd740' },
         showSymbol: false,
-        areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(255,215,64,0.25)' }, { offset: 1, color: 'rgba(255,215,64,0)' }] } },
+        markLine: { silent: true, symbol: 'none', data: [], label: { show: true, position: 'insideEndTop', color: '#aaa', fontSize: 10 } },
       },
       { name: 'MA5', type: 'line', xAxisIndex: 0, yAxisIndex: 0, data: [],
         lineStyle: { width: 1, color: '#ff69b4' }, showSymbol: false },
       { name: 'MA20', type: 'line', xAxisIndex: 0, yAxisIndex: 0, data: [],
         lineStyle: { width: 1, color: '#7c4dff', type: 'dashed' }, showSymbol: false },
       { name: 'Vol', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: [],
-        itemStyle: { color: '#7c4dff55' } },
+        itemStyle: { color: '#7c4dff' } },
     ],
   });
 }
@@ -347,7 +400,7 @@ function renderChart(candles) {
   const closes = candles.map(c => c.close);
   const volumes = candles.map((c, i) => ({
     value: c.volume,
-    itemStyle: { color: c.close >= (candles[i-1]?.close ?? c.open) ? '#ff174433' : '#00e67633' }
+    itemStyle: { color: c.close >= (candles[i-1]?.close ?? c.open) ? 'rgba(255,23,68,0.6)' : 'rgba(0,230,118,0.6)' }
   }));
   chart.setOption({
     xAxis: [{ data: times }, { data: times }],
@@ -383,6 +436,22 @@ function updateQuote(q) {
 
   // Stats
   renderStats(q);
+
+  // Reference price line on chart
+  const ref = q.referencePrice ?? q.previousClose;
+  if (ref && chart) {
+    chart.setOption({
+      series: [{
+        markLine: {
+          silent: true,
+          symbol: 'none',
+          lineStyle: { type: [3, 3], color: '#ffffff55', width: 1 },
+          data: [{ yAxis: ref }],
+          label: { show: true, position: 'insideEndTop', formatter: ref.toFixed(2), color: '#aaa', fontSize: 10 }
+        }
+      }]
+    });
+  }
 }
 
 function renderOrderBook(q) {
@@ -464,14 +533,22 @@ function formatValue(v) {
 // ============================================================
 async function fetchTrades() {
   try {
-    const res = await fetch(`/api/intraday/trades?symbol=${symbol}&limit=30`);
+    const res = await fetch(`/api/intraday/trades?symbol=${toFbsSym(symbol)}&limit=500`);
     const data = await res.json();
     if (data.data && data.data.length) renderTrades(data.data);
     else document.getElementById('txBody').innerHTML = '';
   } catch {}
+  // Fetch price-volume data
+  try {
+    const res = await fetch(`/api/intraday/volumes?symbol=${toFbsSym(symbol)}`);
+    const data = await res.json();
+    if (data.data && data.data.length) { lastVolData = data.data; renderPriceVolume(); }
+    else { lastVolData = []; document.getElementById('pvBody').innerHTML = ''; }
+  } catch {}
 }
 
 function renderTrades(trades) {
+  lastTrades = trades;
   const tbody = document.getElementById('txBody');
   // Show newest first
   const rows = trades.slice().reverse();
@@ -488,7 +565,69 @@ function renderTrades(trades) {
       <td>${(t.volume || 0).toLocaleString()}</td>
     </tr>`;
   }).join('');
+  // Also render price-volume table
+  lastTrades = trades;
+  renderPriceVolume();
 }
+
+function renderPriceVolume() {
+  const tbody = document.getElementById('pvBody');
+  if (!lastVolData || !lastVolData.length) { tbody.innerHTML = ''; return; }
+
+  const volumes = lastVolData;
+  const totalVol = volumes.reduce((s, v) => s + (v.volume || 0), 0) || 1;
+  const maxVol = Math.max(...volumes.map(v => v.volume || 0), 1);
+  const refPrice = currentQuote?.referencePrice ?? currentQuote?.previousClose;
+
+  // Aggregate trades by price for 筆數/均量
+  const tradeMap = {};
+  lastTrades.forEach(t => {
+    const p = t.price;
+    if (!p) return;
+    if (!tradeMap[p]) tradeMap[p] = { count: 0, size: 0 };
+    tradeMap[p].count += 1;
+    tradeMap[p].size += (t.size || 0);
+  });
+
+  // Sort by price descending (high to low)
+  const items = [...volumes].sort((a, b) => (b.price || 0) - (a.price || 0));
+
+  tbody.innerHTML = items.map(item => {
+    const vol = item.volume || 0;
+    const pct = (vol / totalVol * 100).toFixed(1);
+    const barW = Math.min(vol / maxVol * 60, 60).toFixed(0);
+    const cls = refPrice ? (item.price > refPrice ? 'up' : item.price < refPrice ? 'down' : 'flat') : '';
+    const bidVol = item.volumeAtBid || 0;
+    const askVol = item.volumeAtAsk || 0;
+    const tx = tradeMap[item.price];
+    const txCount = tx ? tx.count : '-';
+    const avgSize = tx ? Math.round(tx.size / tx.count) : '-';
+    return `<tr>
+      <td class="${cls}">${item.price?.toFixed(2) || '-'}</td>
+      <td>${(bidVol + askVol) > 0 ? (bidVol + askVol).toLocaleString() : '-'}</td>
+      <td>${vol.toLocaleString()}</td>
+      <td><span class="pv-bar" style="width:${barW}px"></span> ${pct}%</td>
+      <td>${typeof txCount === 'number' ? txCount.toLocaleString() : txCount}</td>
+      <td>${avgSize}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Right panel bottom tab switching
+let rpTab = 'tx';
+let lastTrades = [];
+let lastVolData = [];
+document.querySelectorAll('.rp-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.rp;
+    if (tab === rpTab) return;
+    document.querySelectorAll('.rp-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.rp-view').forEach(v => v.classList.remove('active'));
+    document.getElementById(tab === 'pv' ? 'rpViewPv' : 'rpViewTx').classList.add('active');
+    rpTab = tab;
+  });
+});
 
 function formatTime(t) {
   // FBS SDK returns time as microseconds since Unix epoch
@@ -505,7 +644,7 @@ function clearStatus() { const el = document.getElementById('status'); el.textCo
 async function fetchIntradayCandles() {
   showStatus('Loading...', 'loading');
   try {
-    const res = await fetch(`/api/intraday/candles?symbol=${symbol}&timeframe=${timeframe}`);
+    const res = await fetch(`/api/intraday/candles?symbol=${toFbsSym(symbol)}&timeframe=${timeframe}`);
     const data = await res.json();
     if (data.data) { renderChart(data.data); clearStatus(); }
     else if (data.error) { showStatus(data.error, 'error'); }
@@ -514,7 +653,7 @@ async function fetchIntradayCandles() {
 
 async function fetchQuote() {
   try {
-    const res = await fetch(`/api/intraday/quote?symbol=${symbol}`);
+    const res = await fetch(`/api/intraday/quote?symbol=${toFbsSym(symbol)}`);
     const data = await res.json();
     if (data && !data.error) updateQuote(data);
   } catch {}
@@ -534,6 +673,18 @@ function startRefresh() {
 }
 
 function stopRefresh() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
+
+function loadChartData() {
+  if (!isMarketOpen()) {
+    const lastDate = getLastTradeDate();
+    document.getElementById('dateLabel').textContent = lastDate;
+    mode = 'live';
+    fetchHistoricalForDate(lastDate);
+  } else {
+    document.getElementById('dateLabel').textContent = new Date().toISOString().slice(0, 10);
+    startRefresh();
+  }
+}
 
 // Detect if market is open (TWSE: Mon-Fri 09:00-13:30)
 function isMarketOpen() {
@@ -624,7 +775,7 @@ document.getElementById('dpOverlay').addEventListener('click', closeDatePopup);
 
 function fetchHistoricalForDate(date) {
   showStatus('Loading...', 'loading');
-  fetch(`/api/historical/candles?symbol=${symbol}&timeframe=${timeframe}&from=${date}&to=${date}`)
+  fetch(`/api/historical/candles?symbol=${toFbsSym(symbol)}&timeframe=${timeframe}&from=${date}&to=${date}`)
     .then(r => r.json())
     .then(data => {
       if (data.data && data.data.length) {
@@ -647,7 +798,7 @@ function fetchHistoricalForDate(date) {
         const first = filtered[0], last = filtered[filtered.length - 1];
         const chg = last.close - first.open;
         const cls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
-        document.getElementById('stockName').textContent = symbol + ' ';
+        document.getElementById('stockName').textContent = toFbsSym(symbol) + ' ';
         document.getElementById('priceDisplay').textContent = last.close.toFixed(2);
         document.getElementById('priceDisplay').className = 'price ' + cls;
         document.getElementById('changeDisplay').innerHTML =
@@ -658,6 +809,7 @@ function fetchHistoricalForDate(date) {
     })
     .catch(() => showStatus('Connection error', 'error'));
   fetchQuote();
+  fetchTrades();
 }
 
 // Mode buttons
@@ -709,9 +861,26 @@ document.getElementById('symbolInput').addEventListener('keydown', (e) => {
 });
 
 // ============================================================
-//  WATCHLIST — unchanged logic
+//  WATCHLIST — with import/export & multi-market
 // ============================================================
 let watchlist = { groups: [{ name: '自選一', stocks: [] }], activeGroup: 0 };
+
+// Strip .TW/.TWO suffix for FBS API calls
+function toFbsSym(sym) {
+  return sym.replace(/\.(TW|TWO)$/, '');
+}
+
+// Extract market suffix from symbol
+function getMarket(sym) {
+  if (sym.endsWith('.TWO')) return 'TWO';
+  return 'TW';
+}
+
+// Build full symbol with market suffix
+function buildSymbol(code, market) {
+  const num = code.replace(/\.(TW|TWO)$/, '');
+  return num + '.' + (market || 'TW');
+}
 
 async function loadWatchlist() {
   try {
@@ -719,6 +888,17 @@ async function loadWatchlist() {
     if (res.ok) watchlist = await res.json();
   } catch {}
   if (!watchlist.groups || !watchlist.groups.length) watchlist = { groups: [{ name: '自選一', stocks: [] }], activeGroup: 0 };
+  // Normalize: ensure all symbols have market suffix
+  let dirty = false;
+  watchlist.groups.forEach(g => {
+    g.stocks.forEach((s, i) => {
+      if (s.symbol && !/\.(TW|TWO|US)$/i.test(s.symbol)) {
+        s.symbol = s.symbol + '.TW';
+        dirty = true;
+      }
+    });
+  });
+  if (dirty) saveWatchlist();
   renderWatchlist();
 }
 
@@ -764,9 +944,13 @@ function renderWatchlist() {
   if (!group.stocks.length) { empty.style.display = 'block'; return; }
   empty.style.display = 'none';
   group.stocks.forEach((s, i) => {
+    const mkt = getMarket(s.symbol);
+    const mktLabel = mkt === 'TWO' ? '櫃' : '市';
+    const mktCls = mkt === 'TWO' ? 'two' : 'tw';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="sym">${s.symbol}</td>
+      <td class="sym">${toFbsSym(s.symbol)}</td>
+      <td><span class="market-tag ${mktCls}">${mktLabel}</span></td>
       <td class="nm">${s.name || ''}</td>
       <td class="${s._cls || ''}">${s.price ?? '--'}</td>
       <td class="${s._cls || ''}">${s.change ?? '--'}</td>
@@ -802,22 +986,85 @@ document.getElementById('newGroupInput').addEventListener('keydown', (e) => {
 document.getElementById('addStockBtn').addEventListener('click', addStock);
 document.getElementById('newStockInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') addStock(); });
 
+// Export watchlist as JSON
+document.getElementById('wlExportBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(watchlist, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `watchlist_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// Import watchlist from JSON
+document.getElementById('wlImportBtn').addEventListener('click', () => {
+  document.getElementById('wlImportFile').click();
+});
+
+document.getElementById('wlImportFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const imported = JSON.parse(text);
+    if (!imported.groups || !Array.isArray(imported.groups)) throw new Error('invalid format');
+    watchlist = imported;
+    if (watchlist.activeGroup == null) watchlist.activeGroup = 0;
+    await saveWatchlist();
+    renderWatchlist();
+  } catch (err) {
+    alert('匯入失敗：' + err.message);
+  }
+  e.target.value = '';
+});
+
 async function addStock() {
   const input = document.getElementById('newStockInput');
-  const sym = input.value.trim();
-  if (!sym) return;
+  const rawSym = input.value.trim();
+  if (!rawSym) return;
+  const marketSel = document.getElementById('marketSelect').value;
   const group = watchlist.groups[watchlist.activeGroup ?? 0];
-  if (group.stocks.some(s => s.symbol === sym)) { input.value = ''; return; }
+
+  // Resolve full symbol: if already has suffix, use as-is; otherwise build with market
+  let fullSym;
+  if (/\.(TW|TWO|US)$/i.test(rawSym)) {
+    fullSym = rawSym.toUpperCase();
+  } else if (marketSel === 'auto') {
+    // Auto-detect: try .TW first, then .TWO
+    fullSym = await autoDetectMarket(rawSym);
+  } else {
+    fullSym = buildSymbol(rawSym, marketSel);
+  }
+
+  if (group.stocks.some(s => s.symbol === fullSym)) { input.value = ''; return; }
   let name = '';
   try {
-    const res = await fetch(`/api/intraday/quote?symbol=${sym}`);
+    const res = await fetch(`/api/intraday/quote?symbol=${toFbsSym(fullSym)}`);
     const data = await res.json();
     if (data.name) name = data.name;
   } catch {}
-  group.stocks.push({ symbol: sym, name });
+  group.stocks.push({ symbol: fullSym, name });
   input.value = '';
   saveWatchlist();
   renderWatchlist();
+}
+
+async function autoDetectMarket(code) {
+  // Try .TW first (上市)
+  try {
+    const res = await fetch(`/api/intraday/quote?symbol=${code}`);
+    const data = await res.json();
+    if (data && !data.error) return code + '.TW';
+  } catch {}
+  // Try .TWO (上櫃)
+  try {
+    const res = await fetch(`/api/intraday/quote?symbol=${code}`);
+    const data = await res.json();
+    if (data && !data.error) return code + '.TWO';
+  } catch {}
+  // Default to .TW
+  return code + '.TW';
 }
 
 async function refreshWatchlistQuotes() {
@@ -825,7 +1072,7 @@ async function refreshWatchlistQuotes() {
   if (!group || !group.stocks.length) return;
   for (const s of group.stocks) {
     try {
-      const res = await fetch(`/api/intraday/quote?symbol=${s.symbol}`);
+      const res = await fetch(`/api/intraday/quote?symbol=${toFbsSym(s.symbol)}`);
       const q = await res.json();
       if (q.error) continue;
       s.name = q.name || s.name;
@@ -845,16 +1092,8 @@ async function refreshWatchlistQuotes() {
 // ============================================================
 initChart();
 
-// Set initial date label and handle market-closed fallback
-if (!isMarketOpen()) {
-  const lastDate = getLastTradeDate();
-  document.getElementById('dateLabel').textContent = lastDate;
-  mode = 'live';
-  fetchHistoricalForDate(lastDate);
-} else {
-  document.getElementById('dateLabel').textContent = new Date().toISOString().slice(0, 10);
-  startRefresh();
-}
+// Set initial date label
+document.getElementById('dateLabel').textContent = new Date().toISOString().slice(0, 10);
 
 loadWatchlist();
 </script>

@@ -47,6 +47,21 @@ export async function handleIntradayTrades(req: Request): Promise<Response> {
   }
 }
 
+export async function handleIntradayVolumes(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const symbol = url.searchParams.get('symbol') || '2330';
+
+  const sdk = await getSDK();
+  const client = sdk.marketdata.restClient;
+
+  try {
+    const data = await client.stock.intraday.volumes({ symbol });
+    return Response.json(data);
+  } catch (err: any) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}
+
 export async function handleHistoricalCandles(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const symbol = url.searchParams.get('symbol') || '2330';

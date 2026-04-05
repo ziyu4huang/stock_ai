@@ -4,12 +4,30 @@
       "name": "自選一",
       "stocks": [
         {
-          "symbol": "2330",
-          "name": "台積電"
+          "symbol": "2330.TW",
+          "name": "台積電",
+          "price": 1810,
+          "change": "-45.00",
+          "changePct": "-2.43%",
+          "volume": "24,852 張",
+          "_cls": "down"
         },
         {
-          "symbol": "2454",
-          "name": "聯發科"
+          "symbol": "2454.TW",
+          "name": "聯發科",
+          "price": 1465,
+          "change": "+0.00",
+          "changePct": "0.00%",
+          "volume": "8,678 張",
+          "_cls": "up"
+        },
+        {
+          "symbol": "3293.TW",
+          "name": "鈊象"
+        },
+        {
+          "symbol": "4991.TW",
+          "name": "環宇-KY"
         }
       ]
     }
