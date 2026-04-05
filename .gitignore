@@ -16,6 +16,7 @@ venv/
 # === Bun / Node ===
 webui/node_modules/
 node_modules/
+bun_app/fbs_app/dist/
 
 # === Generated outputs (large, regenerate from data) ===
 output/
@@ -37,7 +38,6 @@ Thumbs.db
 
 # === Secrets ===
 .env
-.env.*
 *.pfx
 *.p12
 *.cer

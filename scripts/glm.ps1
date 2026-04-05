@@ -26,10 +26,10 @@
 
 # Default values (always override to ensure consistency)
 $env:Z_AI_MODE              = 'ZAI'
-$env:Z_AI_MODEL_OPUS        = 'glm-5-turbo'
-$env:Z_AI_MODEL_DEFAULT     = 'glm-5-turbo'
+$env:Z_AI_MODEL_OPUS        = 'glm-5.1'
+$env:Z_AI_MODEL_DEFAULT     = 'glm-5.1'
 $env:Z_AI_MODEL_AIR         = 'glm-4.5-air'
-$env:Z_AI_MODEL_ALTERNATIVE = 'glm-5-turbo'
+$env:Z_AI_MODEL_ALTERNATIVE = 'glm-5.1'
 
 function glm {
     param()

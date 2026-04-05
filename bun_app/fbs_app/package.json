@@ -1,0 +1,16 @@
+{
+  "name": "fbs-app",
+  "version": "0.1.0",
+  "description": "Fubon Neo stock app — intraday chart with live + historical replay",
+  "scripts": {
+    "dev": "bun --env-file=../../.env --watch src/index.ts",
+    "start": "bun --env-file=../../.env src/index.ts"
+  },
+  "dependencies": {
+    "fubon-neo": "file:../../vendor/fubon-neo-2.2.8.tgz"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "playwright": "^1.59.1"
+  }
+}

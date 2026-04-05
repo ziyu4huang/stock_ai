@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FBS Stock</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', 'Microsoft JhengHei', monospace; font-size: 13px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* ===== Tab Bar ===== */
+.tab-bar { display: flex; align-items: center; background: #0d1b2a; border-bottom: 2px solid #0f3460; padding: 0 16px; flex-shrink: 0; }
+.tab-bar .logo { font-size: 15px; font-weight: bold; color: #4fc3f7; margin-right: 20px; padding: 8px 0; }
+.tab-btn { padding: 8px 16px; background: transparent; color: #888; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 13px; margin-bottom: -2px; }
+.tab-btn:hover { color: #ccc; }
+.tab-btn.active { color: #4fc3f7; border-bottom-color: #4fc3f7; }
+.tab-content { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+.tab-content.active { display: flex; }
+
+/* ===== Chart Tab ===== */
+.top-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; background: #16213e; border-bottom: 1px solid #0f3460; flex-shrink: 0; }
+.top-bar .symbol-area { display: flex; align-items: center; gap: 8px; }
+.top-bar .symbol-area input { width: 80px; padding: 4px 8px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 4px; font-size: 14px; }
+.top-bar .stock-name { font-size: 15px; font-weight: bold; }
+
+.controls { display: flex; align-items: center; gap: 12px; padding: 5px 16px; background: #16213e; border-bottom: 1px solid #0f3460; flex-wrap: wrap; flex-shrink: 0; }
+.mode-group { display: flex; gap: 4px; }
+.mode-btn { padding: 3px 10px; border: 1px solid #0f3460; border-radius: 4px; background: transparent; color: #aaa; cursor: pointer; font-size: 12px; }
+.mode-btn.active { background: #0f3460; color: #4fc3f7; border-color: #4fc3f7; }
+.sep { color: #444; }
+.tf-group { display: flex; gap: 4px; }
+.tf-btn { padding: 3px 10px; border: 1px solid #0f3460; border-radius: 4px; background: transparent; color: #aaa; cursor: pointer; font-size: 12px; }
+.tf-btn.active { background: #0f3460; color: #4fc3f7; border-color: #4fc3f7; }
+.date-picker { padding: 3px 8px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 4px; font-size: 12px; display: none; }
+.date-picker.visible { display: inline-block; }
+
+.quote-header { display: flex; align-items: center; gap: 16px; padding: 6px 16px; background: #1a1a2e; border-bottom: 1px solid #0f3460; flex-wrap: wrap; flex-shrink: 0; }
+.quote-header .price { font-size: 24px; font-weight: bold; }
+.quote-header .change { font-size: 14px; font-weight: bold; }
+.up { color: #e74c3c; }
+.down { color: #2ecc71; }
+.quote-header .ohlc { display: flex; gap: 12px; color: #888; font-size: 12px; }
+.quote-header .ohlc span b { color: #ccc; }
+
+.chart-wrap { flex: 1; position: relative; min-height: 0; }
+#chart { width: 100%; height: 100%; }
+#status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #888; font-size: 14px; text-align: center; pointer-events: none; z-index: 10; max-width: 80%; }
+#status.error { color: #e74c3c; }
+#status.loading { color: #4fc3f7; }
+
+.footer { display: flex; align-items: center; gap: 16px; padding: 4px 16px; background: #16213e; border-top: 1px solid #0f3460; color: #888; font-size: 11px; flex-shrink: 0; }
+.footer .stat b { color: #ccc; }
+
+/* ===== Watchlist Tab ===== */
+.wl-layout { display: flex; flex: 1; overflow: hidden; }
+
+/* Groups panel */
+.wl-groups { width: 160px; background: #16213e; border-right: 1px solid #0f3460; display: flex; flex-direction: column; flex-shrink: 0; }
+.wl-groups-header { padding: 8px 12px; font-weight: bold; color: #4fc3f7; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; }
+.wl-groups-list { flex: 1; overflow-y: auto; }
+.wl-group-item { padding: 8px 12px; cursor: pointer; color: #aaa; border-bottom: 1px solid #0f346033; display: flex; justify-content: space-between; align-items: center; }
+.wl-group-item:hover { background: #1a2744; }
+.wl-group-item.active { color: #4fc3f7; background: #0f346044; border-left: 3px solid #4fc3f7; }
+.wl-group-item .count { font-size: 11px; color: #666; }
+.wl-group-del { background: none; border: none; color: #555; cursor: pointer; font-size: 14px; padding: 0 4px; display: none; }
+.wl-group-item:hover .wl-group-del { display: inline; }
+.wl-group-del:hover { color: #e74c3c; }
+.wl-add-group { padding: 8px 12px; border-top: 1px solid #0f3460; }
+.wl-add-group input { width: 100%; padding: 4px 8px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 4px; font-size: 12px; }
+
+/* Stocks panel */
+.wl-stocks { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.wl-stocks-header { padding: 8px 16px; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.wl-stocks-header h3 { color: #4fc3f7; font-size: 14px; }
+.wl-add-stock { display: flex; gap: 6px; }
+.wl-add-stock input { width: 90px; padding: 4px 8px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 4px; font-size: 12px; }
+.btn { padding: 4px 12px; background: #0f3460; color: #4fc3f7; border: 1px solid #4fc3f7; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.btn:hover { background: #1a4a8a; }
+.btn-sm { padding: 2px 8px; font-size: 11px; }
+
+.wl-table-wrap { flex: 1; overflow-y: auto; }
+.wl-table { width: 100%; border-collapse: collapse; }
+.wl-table th { padding: 6px 12px; text-align: left; color: #666; font-size: 11px; font-weight: normal; border-bottom: 1px solid #0f346066; position: sticky; top: 0; background: #1a1a2e; }
+.wl-table td { padding: 6px 12px; border-bottom: 1px solid #0f346022; }
+.wl-table tr { cursor: pointer; }
+.wl-table tr:hover { background: #1a2744; }
+.wl-table .sym { color: #4fc3f7; font-weight: bold; }
+.wl-table .nm { color: #ccc; }
+.wl-table .del-btn { background: none; border: none; color: #555; cursor: pointer; font-size: 12px; }
+.wl-table .del-btn:hover { color: #e74c3c; }
+.wl-empty { padding: 40px; text-align: center; color: #555; }
+</style>
+</head>
+<body>
+
+<!-- ===== Tab Bar ===== -->
+<div class="tab-bar">
+  <span class="logo">FBS Stock</span>
+  <button class="tab-btn active" data-tab="chart">走勢圖</button>
+  <button class="tab-btn" data-tab="watchlist">自選股</button>
+</div>
+
+<!-- ===== Chart Tab ===== -->
+<div class="tab-content active" id="tab-chart">
+  <div class="top-bar">
+    <div class="symbol-area">
+      <input type="text" id="symbolInput" value="2330" maxlength="6" />
+      <span class="stock-name" id="stockName"></span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="mode-group">
+      <button class="mode-btn active" data-mode="live">● LIVE 今日</button>
+      <button class="mode-btn" data-mode="history">○ 歷史</button>
+    </div>
+    <span class="sep">|</span>
+    <input type="date" id="datePicker" class="date-picker" />
+    <span class="sep">|</span>
+    <div class="tf-group">
+      <button class="tf-btn active" data-tf="1">1分</button>
+      <button class="tf-btn" data-tf="5">5分</button>
+      <button class="tf-btn" data-tf="15">15分</button>
+      <button class="tf-btn" data-tf="30">30分</button>
+      <button class="tf-btn" data-tf="60">60分</button>
+    </div>
+  </div>
+
+  <div class="quote-header">
+    <span class="price" id="priceDisplay">--</span>
+    <span class="change" id="changeDisplay">--</span>
+    <div class="ohlc">
+      <span>開 <b id="qOpen">--</b></span>
+      <span>高 <b id="qHigh">--</b></span>
+      <span>低 <b id="qLow">--</b></span>
+      <span>收 <b id="qClose">--</b></span>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div id="chart"></div>
+    <div id="status"></div>
+  </div>
+
+  <div class="footer">
+    <span class="stat">Vol: <b id="fVol">--</b></span>
+    <span class="stat">Val: <b id="fVal">--</b></span>
+    <span class="stat">漲停 <b id="fLimitUp">--</b></span>
+    <span class="stat">跌停 <b id="fLimitDown">--</b></span>
+    <span id="fTime"></span>
+  </div>
+</div>
+
+<!-- ===== Watchlist Tab ===== -->
+<div class="tab-content" id="tab-watchlist">
+  <div class="wl-layout">
+    <div class="wl-groups">
+      <div class="wl-groups-header">
+        <span>群組</span>
+      </div>
+      <div class="wl-groups-list" id="wlGroupsList"></div>
+      <div class="wl-add-group">
+        <input type="text" id="newGroupInput" placeholder="+ 新群組名稱" maxlength="10" />
+      </div>
+    </div>
+    <div class="wl-stocks">
+      <div class="wl-stocks-header">
+        <h3 id="wlGroupName">自選股</h3>
+        <div class="wl-add-stock">
+          <input type="text" id="newStockInput" placeholder="股票代號" maxlength="6" />
+          <button class="btn" id="addStockBtn">加入</button>
+        </div>
+      </div>
+      <div class="wl-table-wrap">
+        <table class="wl-table">
+          <thead><tr><th>代號</th><th>名稱</th><th>成交</th><th>漲跌</th><th>漲幅%</th><th>總量</th><th></th></tr></thead>
+          <tbody id="wlStocksBody"></tbody>
+        </table>
+        <div class="wl-empty" id="wlEmpty">尚無股票，請輸入代號加入</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  TAB SWITCHING
+// ============================================================
+let activeTab = 'chart';
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    if (tab === activeTab) return;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    activeTab = tab;
+    if (tab === 'chart') {
+      if (chart) chart.resize();
+      if (mode === 'live') startRefresh();
+    } else {
+      stopRefresh();
+      refreshWatchlistQuotes();
+    }
+  });
+});
+
+function switchToChart(sym) {
+  symbol = sym;
+  document.getElementById('symbolInput').value = sym;
+  // Switch tab
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.tab-btn[data-tab="chart"]').classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-chart').classList.add('active');
+  activeTab = 'chart';
+  if (chart) chart.resize();
+  startRefresh();
+}
+
+// ============================================================
+//  CHART — State, ECharts, Fetch, Events (unchanged logic)
+// ============================================================
+let mode = 'live';
+let timeframe = '1';
+let refreshTimer = null;
+let chart = null;
+let symbol = new URLSearchParams(location.search).get('symbol') || '2330';
+document.getElementById('symbolInput').value = symbol;
+
+function initChart() {
+  chart = echarts.init(document.getElementById('chart'), 'dark');
+  window.addEventListener('resize', () => { if (activeTab === 'chart') chart.resize(); });
+  chart.setOption({
+    backgroundColor: '#1a1a2e', animation: false,
+    grid: [
+      { left: 60, right: 20, top: 30, height: '60%' },
+      { left: 60, right: 20, top: '75%', height: '18%' },
+    ],
+    xAxis: [
+      { type: 'category', data: [], gridIndex: 0, axisLine: { lineStyle: { color: '#333' } }, axisLabel: { color: '#888', fontSize: 10 } },
+      { type: 'category', data: [], gridIndex: 1, axisLine: { lineStyle: { color: '#333' } }, axisLabel: { show: false } },
+    ],
+    yAxis: [
+      { type: 'value', gridIndex: 0, scale: true, splitLine: { lineStyle: { color: '#222' } }, axisLabel: { color: '#888' } },
+      { type: 'value', gridIndex: 1, scale: true, splitLine: { lineStyle: { color: '#222' } }, axisLabel: { color: '#888', fontSize: 10 } },
+    ],
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, backgroundColor: '#16213e', borderColor: '#0f3460', textStyle: { color: '#e0e0e0', fontSize: 12 } },
+    series: [
+      { name: 'K', type: 'candlestick', xAxisIndex: 0, yAxisIndex: 0, data: [],
+        itemStyle: { color: '#e74c3c', color0: '#2ecc71', borderColor: '#e74c3c', borderColor0: '#2ecc71' } },
+      { name: 'SMA5', type: 'line', xAxisIndex: 0, yAxisIndex: 0, data: [], smooth: true,
+        lineStyle: { width: 1, color: '#f39c12' }, symbol: 'none' },
+      { name: 'SMA20', type: 'line', xAxisIndex: 0, yAxisIndex: 0, data: [], smooth: true,
+        lineStyle: { width: 1, color: '#9b59b6', type: 'dashed' }, symbol: 'none' },
+      { name: 'Vol', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: [],
+        itemStyle: { color: '#3498db' } },
+    ],
+  });
+}
+
+function calcSMA(data, period) {
+  const result = [];
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) { result.push(null); continue; }
+    let sum = 0;
+    for (let j = i - period + 1; j <= i; j++) sum += data[j];
+    result.push(+(sum / period).toFixed(2));
+  }
+  return result;
+}
+
+function renderChart(candles) {
+  if (!candles || !candles.length) return;
+  const times = candles.map(c => {
+    const d = new Date(c.date);
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+  });
+  const ohlc = candles.map(c => [c.open, c.close, c.low, c.high]);
+  const closes = candles.map(c => c.close);
+  const volumes = candles.map((c, i) => ({
+    value: c.volume,
+    itemStyle: { color: c.close >= (candles[i-1]?.close ?? c.open) ? '#e74c3c55' : '#2ecc7155' }
+  }));
+  chart.setOption({
+    xAxis: [{ data: times }, { data: times }],
+    series: [{ data: ohlc }, { data: calcSMA(closes, 5) }, { data: calcSMA(closes, 20) }, { data: volumes }],
+  });
+}
+
+function updateQuote(q) {
+  if (!q) return;
+  const chg = q.change ?? 0;
+  const pct = q.changePercent ?? 0;
+  const cls = chg >= 0 ? 'up' : 'down';
+  const arrow = chg >= 0 ? '▲' : '▼';
+  document.getElementById('stockName').textContent = q.name || '';
+  document.getElementById('priceDisplay').textContent = q.closePrice ?? '--';
+  document.getElementById('priceDisplay').className = 'price ' + cls;
+  document.getElementById('changeDisplay').innerHTML = `${arrow}${Math.abs(chg).toFixed(2)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+  document.getElementById('changeDisplay').className = 'change ' + cls;
+  document.getElementById('qOpen').textContent = q.openPrice ?? '--';
+  document.getElementById('qHigh').textContent = q.highPrice ?? '--';
+  document.getElementById('qLow').textContent = q.lowPrice ?? '--';
+  document.getElementById('qClose').textContent = q.closePrice ?? '--';
+  if (q.total) {
+    document.getElementById('fVol').textContent = (q.total.tradeVolume ?? 0).toLocaleString() + ' 張';
+    const val = q.total.tradeValue ?? 0;
+    document.getElementById('fVal').textContent = val >= 1e8 ? (val / 1e8).toFixed(1) + ' 億' : val.toLocaleString();
+  }
+}
+
+function updateFooter(candles) {
+  if (!candles || !candles.length) return;
+  document.getElementById('fVol').textContent = candles.reduce((s, c) => s + (c.volume || 0), 0).toLocaleString() + ' 張';
+}
+
+function showStatus(msg, type = '') { const el = document.getElementById('status'); el.textContent = msg; el.className = type; }
+function clearStatus() { const el = document.getElementById('status'); el.textContent = ''; el.className = ''; }
+
+async function fetchIntradayCandles() {
+  showStatus('Loading...', 'loading');
+  const res = await fetch(`/api/intraday/candles?symbol=${symbol}&timeframe=${timeframe}`);
+  const data = await res.json();
+  if (data.data) { renderChart(data.data); updateFooter(data.data); clearStatus(); }
+  else if (data.error) { showStatus(data.error, 'error'); }
+}
+
+async function fetchQuote() {
+  const res = await fetch(`/api/intraday/quote?symbol=${symbol}`);
+  const data = await res.json();
+  if (data && !data.error) updateQuote(data);
+}
+
+async function fetchHistoricalCandles() {
+  const dp = document.getElementById('datePicker');
+  const date = dp.value;
+  if (!date) return;
+  const to = date;
+  const fromDate = new Date(date);
+  fromDate.setDate(fromDate.getDate() - 30);
+  const from = fromDate.toISOString().slice(0, 10);
+  showStatus('Loading...', 'loading');
+  const res = await fetch(`/api/historical/candles?symbol=${symbol}&timeframe=${timeframe}&from=${from}&to=${to}`);
+  const data = await res.json();
+  if (data.data) {
+    const filtered = data.data.filter(c => c.date && c.date.startsWith(date));
+    renderChart(filtered.length ? filtered : data.data);
+    updateFooter(filtered.length ? filtered : data.data);
+    clearStatus();
+    const candles = filtered.length ? filtered : data.data;
+    if (candles.length) {
+      const first = candles[0], last = candles[candles.length - 1];
+      const high = Math.max(...candles.map(c => c.high));
+      const low = Math.min(...candles.map(c => c.low));
+      const chg = last.close - first.open;
+      document.getElementById('stockName').textContent = symbol;
+      document.getElementById('priceDisplay').textContent = last.close.toFixed(2);
+      document.getElementById('priceDisplay').className = 'price ' + (chg >= 0 ? 'up' : 'down');
+      document.getElementById('changeDisplay').textContent = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}`;
+      document.getElementById('changeDisplay').className = 'change ' + (chg >= 0 ? 'up' : 'down');
+      document.getElementById('qOpen').textContent = first.open.toFixed(2);
+      document.getElementById('qHigh').textContent = high.toFixed(2);
+      document.getElementById('qLow').textContent = low.toFixed(2);
+      document.getElementById('qClose').textContent = last.close.toFixed(2);
+    }
+  } else if (data.error) { showStatus(data.error, 'error'); }
+}
+
+function startRefresh() {
+  stopRefresh();
+  if (mode !== 'live') return;
+  fetchIntradayCandles();
+  fetchQuote();
+  refreshTimer = setInterval(() => { fetchIntradayCandles(); fetchQuote(); }, 15000);
+}
+function stopRefresh() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
+
+function getLastTradeDate() {
+  const d = new Date();
+  const dow = d.getDay();
+  if (dow === 0) d.setDate(d.getDate() - 2);
+  else if (dow === 6) d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// Chart event handlers
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    const dp = document.getElementById('datePicker');
+    dp.classList.toggle('visible', mode === 'history');
+    if (mode === 'live') startRefresh();
+    else { stopRefresh(); if (!dp.value) dp.value = getLastTradeDate(); fetchHistoricalCandles(); }
+  });
+});
+document.querySelectorAll('.tf-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    timeframe = btn.dataset.tf;
+    if (mode === 'live') startRefresh(); else fetchHistoricalCandles();
+  });
+});
+document.getElementById('datePicker').addEventListener('change', () => { if (mode === 'history') fetchHistoricalCandles(); });
+document.getElementById('symbolInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { symbol = e.target.value.trim(); if (mode === 'live') startRefresh(); else fetchHistoricalCandles(); }
+});
+
+// ============================================================
+//  WATCHLIST — State, CRUD, Rendering
+// ============================================================
+let watchlist = { groups: [{ name: '自選一', stocks: [] }], activeGroup: 0 };
+
+async function loadWatchlist() {
+  try {
+    const res = await fetch('/api/watchlist');
+    if (res.ok) watchlist = await res.json();
+  } catch {}
+  if (!watchlist.groups || !watchlist.groups.length) watchlist = { groups: [{ name: '自選一', stocks: [] }], activeGroup: 0 };
+  renderWatchlist();
+}
+
+async function saveWatchlist() {
+  await fetch('/api/watchlist', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(watchlist),
+  });
+}
+
+function renderWatchlist() {
+  const g = watchlist.groups;
+  const ag = watchlist.activeGroup ?? 0;
+  const listEl = document.getElementById('wlGroupsList');
+  listEl.innerHTML = '';
+  g.forEach((grp, i) => {
+    const div = document.createElement('div');
+    div.className = 'wl-group-item' + (i === ag ? ' active' : '');
+    div.innerHTML = `<span>${grp.name} <span class="count">(${grp.stocks.length})</span></span>
+      ${g.length > 1 ? `<button class="wl-group-del" title="刪除">&times;</button>` : ''}`;
+    div.addEventListener('click', (e) => {
+      if (e.target.classList.contains('wl-group-del')) return;
+      watchlist.activeGroup = i;
+      saveWatchlist();
+      renderWatchlist();
+    });
+    const delBtn = div.querySelector('.wl-group-del');
+    if (delBtn) delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      g.splice(i, 1);
+      if (watchlist.activeGroup >= g.length) watchlist.activeGroup = g.length - 1;
+      saveWatchlist();
+      renderWatchlist();
+    });
+    listEl.appendChild(div);
+  });
+  // Stocks table
+  const group = g[ag] || g[0];
+  document.getElementById('wlGroupName').textContent = group.name;
+  const tbody = document.getElementById('wlStocksBody');
+  const empty = document.getElementById('wlEmpty');
+  tbody.innerHTML = '';
+  if (!group.stocks.length) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  group.stocks.forEach((s, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="sym">${s.symbol}</td>
+      <td class="nm">${s.name || ''}</td>
+      <td class="${s._cls || ''}">${s.price ?? '--'}</td>
+      <td class="${s._cls || ''}">${s.change ?? '--'}</td>
+      <td class="${s._cls || ''}">${s.changePct ?? '--'}</td>
+      <td>${s.volume ?? '--'}</td>
+      <td><button class="del-btn" title="移除">&times;</button></td>`;
+    tr.addEventListener('click', (e) => {
+      if (e.target.classList.contains('del-btn')) return;
+      switchToChart(s.symbol);
+    });
+    tr.querySelector('.del-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      group.stocks.splice(i, 1);
+      saveWatchlist();
+      renderWatchlist();
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+// Add group
+document.getElementById('newGroupInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const name = e.target.value.trim();
+    if (!name) return;
+    watchlist.groups.push({ name, stocks: [] });
+    watchlist.activeGroup = watchlist.groups.length - 1;
+    e.target.value = '';
+    saveWatchlist();
+    renderWatchlist();
+  }
+});
+
+// Add stock
+document.getElementById('addStockBtn').addEventListener('click', addStock);
+document.getElementById('newStockInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') addStock(); });
+
+async function addStock() {
+  const input = document.getElementById('newStockInput');
+  const sym = input.value.trim();
+  if (!sym) return;
+  const group = watchlist.groups[watchlist.activeGroup ?? 0];
+  if (group.stocks.some(s => s.symbol === sym)) { input.value = ''; return; }
+  // Fetch name from quote API
+  let name = '';
+  try {
+    const res = await fetch(`/api/intraday/quote?symbol=${sym}`);
+    const data = await res.json();
+    if (data.name) name = data.name;
+  } catch {}
+  group.stocks.push({ symbol: sym, name });
+  input.value = '';
+  saveWatchlist();
+  renderWatchlist();
+}
+
+// Refresh quotes for all stocks in active group
+async function refreshWatchlistQuotes() {
+  const group = watchlist.groups[watchlist.activeGroup ?? 0];
+  if (!group || !group.stocks.length) return;
+  for (const s of group.stocks) {
+    try {
+      const res = await fetch(`/api/intraday/quote?symbol=${s.symbol}`);
+      const q = await res.json();
+      if (q.error) continue;
+      s.name = q.name || s.name;
+      s.price = q.closePrice ?? '--';
+      const chg = q.change ?? 0;
+      s.change = (chg >= 0 ? '+' : '') + chg.toFixed(2);
+      s.changePct = (q.changePercent ?? 0).toFixed(2) + '%';
+      s.volume = q.total ? (q.total.tradeVolume ?? 0).toLocaleString() + ' 張' : '--';
+      s._cls = chg >= 0 ? 'up' : 'down';
+    } catch {}
+  }
+  renderWatchlist();
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+initChart();
+startRefresh();
+loadWatchlist();
+</script>
+</body>
+</html>

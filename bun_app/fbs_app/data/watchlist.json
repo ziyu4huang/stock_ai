@@ -1,0 +1,18 @@
+{
+  "groups": [
+    {
+      "name": "自選一",
+      "stocks": [
+        {
+          "symbol": "2330",
+          "name": "台積電"
+        },
+        {
+          "symbol": "2454",
+          "name": "聯發科"
+        }
+      ]
+    }
+  ],
+  "activeGroup": 0
+}
