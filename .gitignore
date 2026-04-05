@@ -19,6 +19,7 @@ node_modules/
 
 # === Generated outputs (large, regenerate from data) ===
 output/
+log/
 
 # === Presentation node_modules (use bun install to restore) ===
 docs/presentation/*/node_modules/
@@ -37,6 +38,13 @@ Thumbs.db
 # === Secrets ===
 .env
 .env.*
+*.pfx
+*.p12
+*.cer
+*.crt
+*.key
+*.pem
+.cert/
 
 # === Cache ===
 .cache/

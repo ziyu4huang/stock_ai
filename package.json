@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "fubon-neo": "./vendor/fubon-neo-2.2.8.tgz",
     "yahoo-finance2": "^3.14.0"
   }
 }

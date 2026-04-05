@@ -48,6 +48,11 @@ Knowledge base is organized in `.agent/memory/` by category. Read relevant files
 - **quant_analysis_cli structure:** `quant_analysis_cli/{python/quant_analysis_cli, bun/src, rust/}`
 - **Data pipeline:** `stock_api_cli fetch --store` → SQLite → `quant_analysis_cli analyze` (or `--input data.json` for file-based)
 - **SQLite:** `~/.stock_ai/data.db` — tables: kline_daily, watchlist, strategies, signal_log, hmm_models, analysis_results
+- **Fubon Neo SDK (FBS):** Node.js SDK at `vendor/fubon-neo-2.2.8.tgz`, ref'd in `package.json`; test scripts in `tests/fbs_nodejs/`
+  - Update docs: `curl -o docs/fbs/llms-full.txt https://www.fbs.com.tw/TradeAPI/llms-full.txt`
+  - Update SDK: replace `.tgz` in `vendor/`, update `package.json` filename, run `bun install`
+  - Run tests: `bun --env-file=.env tests/fbs_nodejs/login.ts` / `history.ts` / `realtime-books.ts`
+  - Full API ref: `docs/fbs/llms-full.txt` — always read before answering FBS questions
 
 ## Knowledge Files
 
@@ -66,6 +71,10 @@ _(empty - add notes here as patterns emerge)_
 
 ### quant/ - Quantitative Analysis
 - [stock-api-cli-architecture](.agent/memory/develop/stock-api-cli-architecture.md) - stock_api_cli package structure, providers, analysis, CLI commands
+
+### fbs/ - Fubon Neo SDK (富邦新一代 API)
+- [fubon-neo-api](docs/fbs/llms-full.txt) - Full SDK docs (LLM-optimized, 61k lines) — read before FBS questions
+- SDK: `vendor/fubon-neo-2.2.8.tgz` | Tests: `tests/fbs_nodejs/` | Docs update: `curl -o docs/fbs/llms-full.txt https://www.fbs.com.tw/TradeAPI/llms-full.txt`
 
 ### Phase 1 — Finish
 - [phase1-finish](docs/phase1-finish.md) - What was actually built: crates, architecture, detection pipeline, run commands
