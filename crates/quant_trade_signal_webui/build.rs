@@ -11,11 +11,10 @@ fn main() {
     let bundle_path = Path::new(&out_dir).join("bundle.js");
     let html_path = Path::new(&out_dir).join("webui.html");
 
-    let bun = if cfg!(windows) {
-        "C:/Users/ziyu4/.bun/bin/bun.exe".to_string()
-    } else {
-        dirs_home_bun()
-    };
+    #[cfg(windows)]
+    let bun = "C:/Users/ziyu4/.bun/bin/bun.exe".to_string();
+    #[cfg(not(windows))]
+    let bun = dirs_home_bun();
 
     // bun install
     let status = Command::new(&bun)
@@ -221,6 +220,7 @@ fn main() {
   <button id="ind-pause" class="toolbar-btn" title="Pause/Resume feed"></button>
   <button id="btn-clear" class="toolbar-btn" title="Clear alerts">Clear</button>
   <button id="ind-lang" class="toolbar-btn" title="Toggle language"></button>
+  <button id="btn-help" class="toolbar-btn" title="Keyboard shortcuts (?)">?</button>
 </div>
 
 <!-- Main 3-column -->
@@ -260,6 +260,9 @@ fn main() {
   <span id="status-events">Ev:0</span>
   <span id="status-time"></span>
 </div>
+
+<!-- Help modal (keyboard shortcuts) -->
+<div id="help-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;"></div>
 
 <script>{bundle_js}</script>
 </body>

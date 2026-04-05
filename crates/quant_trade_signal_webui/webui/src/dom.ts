@@ -1,7 +1,9 @@
 // DOM helper utilities
 
 export function el(id: string): HTMLElement {
-  return document.getElementById(id)!;
+  const node = document.getElementById(id);
+  if (!node) throw new Error(`[whale-radar] missing DOM element: #${id}`);
+  return node;
 }
 
 /** Set textContent only if changed — avoids unnecessary DOM mutations */

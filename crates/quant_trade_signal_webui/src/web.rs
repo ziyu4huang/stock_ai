@@ -23,6 +23,7 @@ pub fn create_router(web_state: Arc<WebState>) -> Router {
         .route("/", get(serve_webui))
         .route("/api/state", get(get_state))
         .route("/api/command", post(post_command))
+        .route("/api/health", get(get_health))
         .route("/ws", get(ws_handler))
         .layer(CorsLayer::permissive())
         .with_state(web_state)
@@ -47,6 +48,15 @@ async fn post_command(
         Err(_) => axum::Json(serde_json::json!({ "ok": false, "error": "channel closed" }))
             .into_response(),
     }
+}
+
+async fn get_health(State(ws): State<Arc<WebState>>) -> Response {
+    let app = ws.app.read().unwrap();
+    axum::Json(serde_json::json!({
+        "status": "ok",
+        "total_events": app.total_events,
+        "paused": app.paused,
+    })).into_response()
 }
 
 async fn ws_handler(

@@ -75,7 +75,7 @@ function renderFlowSummary(v: TabSnapshot): string {
 
   // Absorption gauge (0-100)
   const absVal = v.absorption_score;
-  const absColor = absVal >= 60 ? 'var(--cyan)' : absVal >= 30 ? 'var(--cyan)' : 'var(--dim)';
+  const absColor = absVal >= 30 ? 'var(--cyan)' : 'var(--dim)';
   const absBold = absVal >= 60 ? 'font-weight:bold;' : '';
 
   // Aggression ratio
@@ -183,8 +183,8 @@ function renderFlowGauge(delta: { cumulative_bid_delta: number; cumulative_ask_d
   let bidPct: string;
   let askPct: string;
   if (total > 0) {
-    bidPct = (cumBid / (cumBid + Math.abs(cumAsk) + 1) * 100).toFixed(0);
-    askPct = (Math.abs(cumAsk) / (cumBid + Math.abs(cumAsk) + 1) * 100).toFixed(0);
+    bidPct = (cumBid / total * 100).toFixed(0);
+    askPct = (Math.abs(cumAsk) / total * 100).toFixed(0);
   } else {
     bidPct = '50';
     askPct = '50';

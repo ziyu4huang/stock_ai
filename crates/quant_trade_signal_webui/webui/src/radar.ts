@@ -6,13 +6,11 @@ import { t } from './i18n';
 
 export function render(v: TabSnapshot): void {
   const radarEl = el('signal-radar');
-  el('tick-title').textContent = `${t('tick.feed')}  ${v.symbol}`;
-
   const scoreColor = v.composite_score > 0 ? 'var(--lgreen)' : v.composite_score < 0 ? 'var(--lred)' : 'var(--dim)';
   const scorePct = ((v.composite_score + 100) / 200 * 100).toFixed(1);
   const stateLabel = t(v.state);
   const stateColor = v.state.includes('L-') ? 'var(--lgreen)' : v.state.includes('S-') ? 'var(--lred)' : v.state === 'NEUTRAL' ? 'var(--dim)' : '#555';
-  const actionColor = v.action.includes('Bull') ? 'var(--lgreen)' : v.action.includes('Bear') ? 'var(--lred)' : 'var(--dim)';
+  const actionColor = v.action.includes('bull') ? 'var(--lgreen)' : v.action.includes('bear') ? 'var(--lred)' : 'var(--dim)';
   const chgColor = v.change_pct > 0 ? 'var(--lgreen)' : v.change_pct < 0 ? 'var(--lred)' : 'var(--dim)';
   const hmmLabel = t(v.hmm_state);
   const hmmColor = v.hmm_state === 'H-IGNITE' ? 'var(--lgreen)' : v.hmm_state === 'H-ACCUM' ? 'var(--cyan)' : v.hmm_state === 'H-DIST' ? 'var(--lred)' : 'var(--dim)';

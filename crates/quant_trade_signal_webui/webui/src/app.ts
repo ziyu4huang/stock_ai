@@ -140,11 +140,13 @@ function setupToolbar(): void {
   el('ind-voice').addEventListener('click', () => sendCommand('toggle_voice'));
   el('ind-pause').addEventListener('click', () => sendCommand('toggle_pause'));
   el('btn-clear').addEventListener('click', () => sendCommand('clear_alerts'));
+  el('btn-help').addEventListener('click', () => toggleHelp());
 
   // Language toggle — toggles locale and forces full re-render
   el('ind-lang').addEventListener('click', () => {
     toggleLocale();
     forceRerender();
+    if (helpVisible) buildHelpModal();
   });
 }
 
@@ -172,13 +174,52 @@ function updatePanelHeaders(): void {
   if (alEl) alEl.textContent = `${t('alerts')} `;
 }
 
+// ── Help modal ──────────────────────────────────────────────────
+
+let helpVisible = false;
+
+function buildHelpModal(): void {
+  const modal = document.getElementById('help-modal');
+  if (!modal) return;
+  const rows = [
+    ['help.1to5', 'help.1to5.desc'],
+    ['help.arrows', 'help.arrows.desc'],
+    ['help.p', 'help.p.desc'],
+    ['help.a', 'help.a.desc'],
+    ['help.s', 'help.s.desc'],
+    ['help.v', 'help.v.desc'],
+    ['help.space', 'help.space.desc'],
+    ['help.q', 'help.q.desc'],
+  ];
+  const tbody = rows.map(([k, d]) =>
+    `<tr><td style="padding:3px 10px 3px 0;color:var(--cyan);font-weight:bold">${t(k)}</td><td style="padding:3px 0;color:var(--text)">${t(d)}</td></tr>`
+  ).join('');
+  modal.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:300px">
+    <div style="color:var(--text);font-size:13px;font-weight:bold;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">${t('help.title')}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px"><tbody>${tbody}</tbody></table>
+    <div style="margin-top:12px;color:var(--dim);font-size:10px;text-align:center">${t('help.dismiss')}</div>
+  </div>`;
+}
+
+function toggleHelp(): void {
+  helpVisible = !helpVisible;
+  const modal = document.getElementById('help-modal');
+  if (!modal) return;
+  if (helpVisible) {
+    buildHelpModal();
+    modal.style.display = 'flex';
+  } else {
+    modal.style.display = 'none';
+  }
+}
+
 // ── Boot ────────────────────────────────────────────────────────
 
 function boot(): void {
   initLocale();
   tabs.init(switchTab);
   setupToolbar();
-  keyboard.init(sendCommand);
+  keyboard.init(sendCommand, toggleHelp);
   connect();
 
   // Set tooltips (static)

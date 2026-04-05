@@ -240,6 +240,16 @@ impl ActionAdvice {
     pub fn is_bull(&self) -> bool {
         matches!(self, ActionAdvice::FollowBull | ActionAdvice::WatchBull)
     }
+    /// Snake-case machine-readable label for JSON serialization.
+    pub fn label(&self) -> &'static str {
+        match self {
+            ActionAdvice::FollowBull => "follow_bull",
+            ActionAdvice::WatchBull  => "watch_bull",
+            ActionAdvice::FollowBear => "follow_bear",
+            ActionAdvice::WatchBear  => "watch_bear",
+            ActionAdvice::StandAside => "stand_aside",
+        }
+    }
 }
 
 // ── HMM state (4-state GaussianHMM confirmation layer) ────────────────────────

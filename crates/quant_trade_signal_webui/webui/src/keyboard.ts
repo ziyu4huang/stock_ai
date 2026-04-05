@@ -1,6 +1,9 @@
 // Keyboard shortcut handler
 
-export function init(sendCommand: (action: string, extra?: Record<string, unknown>) => void): void {
+export function init(
+  sendCommand: (action: string, extra?: Record<string, unknown>) => void,
+  toggleHelp?: () => void,
+): void {
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
@@ -23,6 +26,11 @@ export function init(sendCommand: (action: string, extra?: Record<string, unknow
     } else if (e.key === ' ') {
       e.preventDefault();
       sendCommand('clear_alerts');
+    } else if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+      e.preventDefault();
+      toggleHelp?.();
+    } else if (e.key === 'Escape') {
+      toggleHelp?.();
     }
   });
 }

@@ -106,6 +106,28 @@ const en: Dict = {
 
   // ── Lang toggle button text
   'lang.toggle': '\u4E2D',
+
+  // ── Help modal
+  'help.title': 'Keyboard Shortcuts',
+  'help.key': 'Key',
+  'help.action': 'Action',
+  'help.1to5': '1 – 5',
+  'help.1to5.desc': 'Switch to tab N',
+  'help.arrows': '← / →',
+  'help.arrows.desc': 'Prev / Next tab',
+  'help.p': 'P',
+  'help.p.desc': 'Pause / Resume',
+  'help.a': 'A',
+  'help.a.desc': 'Toggle auto-switch',
+  'help.s': 'S',
+  'help.s.desc': 'Toggle sound',
+  'help.v': 'V',
+  'help.v.desc': 'Toggle voice',
+  'help.space': 'Space',
+  'help.space.desc': 'Clear alerts',
+  'help.q': '?',
+  'help.q.desc': 'Toggle this help',
+  'help.dismiss': 'Press ? or Esc to close',
 };
 
 const zh_TW: Dict = {
@@ -210,6 +232,28 @@ const zh_TW: Dict = {
 
   // ── Lang toggle button text
   'lang.toggle': 'EN',
+
+  // ── Help modal
+  'help.title': '\u9375\u76E4\u5FEB\u6377\u9375',
+  'help.key': '\u6309\u9375',
+  'help.action': '\u529F\u80FD',
+  'help.1to5': '1 – 5',
+  'help.1to5.desc': '\u5207\u63DB\u81F3\u7B2C N \u5206\u9801',
+  'help.arrows': '\u2190 / \u2192',
+  'help.arrows.desc': '\u4E0A\u4E00 / \u4E0B\u4E00\u5206\u9801',
+  'help.p': 'P',
+  'help.p.desc': '\u66AB\u505C / \u7E7C\u7E8C',
+  'help.a': 'A',
+  'help.a.desc': '\u81EA\u52D5\u5207\u63DB\u958B\u95DC',
+  'help.s': 'S',
+  'help.s.desc': '\u97F3\u6548\u958B\u95DC',
+  'help.v': 'V',
+  'help.v.desc': '\u8A9E\u97F3\u958B\u95DC',
+  'help.space': 'Space',
+  'help.space.desc': '\u6E05\u9664\u8B66\u5831',
+  'help.q': '?',
+  'help.q.desc': '\u986F\u793A\u6B64\u8AAA\u660E',
+  'help.dismiss': '\u6309 ? \u6216 Esc \u95DC\u9589',
 };
 
 // ── Locale management ────────────────────────────────────────────
